@@ -1,0 +1,283 @@
+.container {
+    padding: var(--space-4);
+    background: var(--color-bg-secondary);
+    border-top: 1px solid var(--color-border);
+}
+
+.timeline {
+    position: relative;
+    height: var(--timeline-height);
+    background: var(--color-bg-tertiary);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+}
+
+.empty {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-text-muted);
+    font-size: var(--font-size-sm);
+}
+
+.track {
+    position: relative;
+    height: 60px;
+    margin: var(--space-4);
+    display: flex;
+    gap: var(--space-2);
+}
+
+.clip {
+    position: relative;
+    flex: 1;
+    min-width: 80px;
+    height: 100%;
+    background: linear-gradient(135deg, rgba(0, 212, 255, 0.2), rgba(255, 0, 170, 0.2));
+    border: 2px solid rgba(0, 212, 255, 0.5);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.clip:hover {
+    border-color: var(--color-accent-primary);
+}
+
+.clipSelected {
+    border-color: var(--color-accent-primary);
+    box-shadow: 0 0 0 2px rgba(0, 212, 255, 0.3);
+}
+
+.clipThumbnail {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0.7;
+}
+
+.clipName {
+    position: absolute;
+    bottom: var(--space-2);
+    left: var(--space-2);
+    right: var(--space-2);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+
+.trimHandle {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 8px;
+    background: var(--color-accent-primary);
+    cursor: ew-resize;
+    opacity: 0;
+    transition: opacity var(--transition-fast);
+}
+
+.clip:hover .trimHandle {
+    opacity: 1;
+}
+
+.trimHandleLeft {
+    left: 0;
+    border-radius: var(--radius-md) 0 0 var(--radius-md);
+}
+
+.trimHandleRight {
+    right: 0;
+    border-radius: 0 var(--radius-md) var(--radius-md) 0;
+}
+
+.trimOverlay {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+    pointer-events: none;
+}
+
+.trimOverlayLeft {
+    left: 0;
+}
+
+.trimOverlayRight {
+    right: 0;
+}
+
+.timecodes {
+    display: flex;
+    justify-content: space-between;
+    padding: 0 var(--space-4) var(--space-2);
+}
+
+.timecode {
+    font-family: var(--font-mono);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+}
+
+.trimInfo {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    margin-top: var(--space-3);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
+.trimBadge {
+    display: inline-block;
+    padding: var(--space-1) var(--space-2);
+    background: var(--color-bg-glass);
+    border-radius: var(--radius-sm);
+    font-family: var(--font-mono);
+    margin: 0 var(--space-1);
+}
+
+.splitBadge {
+    display: inline-block;
+    padding: var(--space-1) var(--space-2);
+    background: rgba(255, 170, 0, 0.2);
+    border-radius: var(--radius-sm);
+    font-family: var(--font-mono);
+    color: var(--color-accent-warning);
+    margin: 0 var(--space-1);
+}
+
+.hint {
+    margin-left: var(--space-4);
+    color: var(--color-text-muted);
+    font-size: var(--font-size-xs);
+}
+
+.hint kbd {
+    display: inline-block;
+    padding: 0 var(--space-1);
+    background: var(--color-bg-glass);
+    border-radius: var(--radius-sm);
+    font-family: var(--font-mono);
+    font-size: var(--font-size-xs);
+}
+
+/* Split markers */
+.splitMarker {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: var(--color-accent-warning);
+    cursor: pointer;
+    z-index: 10;
+    transform: translateX(-50%);
+    transition: all var(--transition-fast);
+}
+
+.splitMarker::before {
+    content: '';
+    position: absolute;
+    top: -4px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 6px solid transparent;
+    border-right: 6px solid transparent;
+    border-top: 6px solid var(--color-accent-warning);
+}
+
+.splitMarker:hover {
+    background: var(--color-accent-error);
+    width: 5px;
+}
+
+.splitMarker:hover::before {
+    border-top-color: var(--color-accent-error);
+}
+
+/* Split mode styles */
+.clipSplitMode {
+    cursor: crosshair;
+    border-color: var(--color-accent-warning) !important;
+    box-shadow: 0 0 0 2px rgba(255, 170, 0, 0.3), inset 0 0 20px rgba(255, 170, 0, 0.1);
+}
+
+.splitCursor {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: var(--color-accent-secondary);
+    pointer-events: none;
+    z-index: 20;
+    transform: translateX(-50%);
+}
+
+.splitCursor::before {
+    content: '';
+    position: absolute;
+    top: -6px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 8px solid transparent;
+    border-right: 8px solid transparent;
+    border-top: 8px solid var(--color-accent-secondary);
+}
+
+.splitCursorTime {
+    position: absolute;
+    top: -28px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--color-bg-glass);
+    backdrop-filter: blur(8px);
+    padding: var(--space-1) var(--space-2);
+    border-radius: var(--radius-sm);
+    font-family: var(--font-mono);
+    font-size: var(--font-size-xs);
+    color: var(--color-accent-secondary);
+    white-space: nowrap;
+    border: 1px solid var(--color-accent-secondary);
+}
+
+.splitModeBtn {
+    background: var(--color-bg-glass);
+    border: 1px solid var(--color-border);
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-md);
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    font-size: var(--font-size-sm);
+    margin-right: var(--space-3);
+}
+
+.splitModeBtn:hover {
+    background: var(--color-bg-secondary);
+    border-color: var(--color-accent-warning);
+    color: var(--color-text-primary);
+}
+
+.splitModeBtnActive {
+    background: rgba(255, 170, 0, 0.2);
+    border-color: var(--color-accent-warning);
+    color: var(--color-accent-warning);
+}
+
+.splitModeBtnActive:hover {
+    background: rgba(255, 170, 0, 0.3);
+}
+
+.trimInfoText {
+    color: var(--color-text-secondary);
+}
