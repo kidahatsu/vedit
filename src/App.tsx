@@ -5,6 +5,7 @@ import { VideoPlayer } from './components/VideoPlayer'
 import { Timeline } from './components/Timeline'
 import { ActionBar } from './components/ActionBar'
 import { ExportModal } from './components/ExportModal'
+import { TransformPanel } from './components/TransformPanel'
 import styles from './App.module.css'
 
 function App() {
@@ -19,6 +20,7 @@ function App() {
 
                 <div className={styles.content}>
                     <VideoPlayer />
+                    <TransformPanel />
                     <Timeline />
                 </div>
             </main>
@@ -34,3 +36,4 @@ function App() {
 }
 
 export default App
+

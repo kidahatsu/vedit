@@ -1,5 +1,17 @@
 import { FFmpeg } from '@ffmpeg/ffmpeg'
 import { fetchFile, toBlobURL } from '@ffmpeg/util'
+import { type AspectRatioPreset, ASPECT_RATIO_DIMENSIONS } from '../store/editorStore'
+
+// Transform options for video processing
+export interface TransformOptions {
+    aspectRatio?: AspectRatioPreset
+    crop?: { x: number; y: number; width: number; height: number }  // Normalized 0-1 values
+    rotation?: 0 | 90 | 180 | 270
+    flipH?: boolean
+    flipV?: boolean
+    sourceWidth?: number
+    sourceHeight?: number
+}
 
 let ffmpeg: FFmpeg | null = null
 let loadPromise: Promise<FFmpeg> | null = null
@@ -229,3 +241,117 @@ function getExtension(filename: string): string {
     return '.mp4'
 }
 
+/**
+ * Build FFmpeg filter chain from transform options
+ * Order: rotation -> flip -> crop -> scale/pad for aspect ratio
+ */
+export function buildFilterChain(transform: TransformOptions): string[] {
+    const filters: string[] = []
+
+    const { aspectRatio, crop, rotation, flipH, flipV, sourceWidth, sourceHeight } = transform
+
+    // 1. Rotation (transpose filter)
+    // transpose=0: 90° CCW + vertical flip
+    // transpose=1: 90° CW
+    // transpose=2: 90° CCW
+    // transpose=3: 90° CW + vertical flip
+    if (rotation === 90) {
+        filters.push('transpose=1')
+    } else if (rotation === 180) {
+        filters.push('transpose=1,transpose=1')
+    } else if (rotation === 270) {
+        filters.push('transpose=2')
+    }
+
+    // 2. Flip
+    if (flipH) {
+        filters.push('hflip')
+    }
+    if (flipV) {
+        filters.push('vflip')
+    }
+
+    // 3. Crop (using normalized values)
+    if (crop && (crop.x !== 0 || crop.y !== 0 || crop.width !== 1 || crop.height !== 1)) {
+        // Need source dimensions to calculate absolute crop values
+        // Use 'iw' and 'ih' for input width/height if not provided
+        if (sourceWidth && sourceHeight) {
+            const cropW = Math.round(crop.width * sourceWidth)
+            const cropH = Math.round(crop.height * sourceHeight)
+            const cropX = Math.round(crop.x * sourceWidth)
+            const cropY = Math.round(crop.y * sourceHeight)
+            filters.push(`crop=${cropW}:${cropH}:${cropX}:${cropY}`)
+        } else {
+            // Use expressions with input dimensions
+            filters.push(`crop=iw*${crop.width}:ih*${crop.height}:iw*${crop.x}:ih*${crop.y}`)
+        }
+    }
+
+    // 4. Aspect ratio with letterbox/pillarbox padding
+    if (aspectRatio && aspectRatio !== 'original') {
+        const dims = ASPECT_RATIO_DIMENSIONS[aspectRatio]
+        filters.push(
+            `scale=${dims.width}:${dims.height}:force_original_aspect_ratio=decrease`,
+            `pad=${dims.width}:${dims.height}:(ow-iw)/2:(oh-ih)/2:black`
+        )
+    }
+
+    return filters
+}
+
+/**
+ * Transform a video with aspect ratio, crop, rotation, and flip
+ */
+export async function transformVideo(
+    file: File,
+    trimStart: number,
+    trimEnd: number,
+    transform: TransformOptions,
+    onProgress?: (progress: number, message: string) => void
+): Promise<Blob> {
+    const ff = await getFFmpeg(onProgress)
+
+    const inputName = 'input' + getExtension(file.name)
+    const outputName = 'output.mp4'
+
+    onProgress?.(20, 'Loading video file...')
+    await ff.writeFile(inputName, await fetchFile(file))
+
+    onProgress?.(30, 'Applying transforms...')
+
+    // Build the FFmpeg command
+    const args = [
+        '-i', inputName,
+        '-ss', trimStart.toFixed(3),
+        '-to', trimEnd.toFixed(3),
+    ]
+
+    // Add filter chain if there are transforms
+    const filters = buildFilterChain(transform)
+    if (filters.length > 0) {
+        args.push('-vf', filters.join(','))
+    }
+
+    // Output settings
+    args.push(
+        '-c:v', 'libx264',
+        '-preset', 'ultrafast',
+        '-crf', '23',
+        '-c:a', 'aac',
+        '-b:a', '128k',
+        '-movflags', '+faststart',
+        outputName
+    )
+
+    await ff.exec(args)
+
+    onProgress?.(90, 'Finalizing...')
+    const data = await ff.readFile(outputName)
+
+    // Cleanup
+    await ff.deleteFile(inputName)
+    await ff.deleteFile(outputName)
+
+    onProgress?.(100, 'Complete!')
+    return new Blob([data as BlobPart], { type: 'video/mp4' })
+}

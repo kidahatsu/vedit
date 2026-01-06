@@ -6,16 +6,44 @@
     justify-content: center;
     background: var(--color-bg-primary);
     padding: var(--space-4);
+    min-height: 0;
+    /* Allow flex shrinking */
+    overflow: hidden;
 }
 
 .player {
     position: relative;
     width: 100%;
     max-width: 800px;
+    max-height: 50vh;
+    /* Hard limit to prevent overflow */
     aspect-ratio: 16 / 9;
     background: var(--color-bg-tertiary);
     border-radius: var(--radius-lg);
     overflow: hidden;
+    transition: aspect-ratio 0.3s ease, max-width 0.3s ease;
+}
+
+/* Constrain width for portrait aspect ratios to prevent height overflow */
+.player.aspectPreviewActive {
+    /* For portrait ratios, limit width to keep height within 50vh */
+    max-width: min(800px, calc(50vh * 0.5625));
+    /* 0.5625 = 9/16 for portrait */
+    background: #000;
+    box-shadow: 0 0 0 4px var(--color-accent-primary);
+}
+
+.aspectIndicator {
+    position: absolute;
+    top: var(--space-2);
+    right: var(--space-2);
+    background: var(--color-accent-primary);
+    color: var(--color-bg-primary);
+    padding: var(--space-1) var(--space-2);
+    border-radius: var(--radius-md);
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    z-index: 10;
 }
 
 .video {
@@ -135,4 +163,213 @@
     background: rgba(255, 255, 255, 0.2);
     border-radius: var(--radius-full);
     cursor: pointer;
+}
+
+/* Video Transform Preview */
+.videoWrapper {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.video.rotated90 {
+    transform: rotate(90deg);
+}
+
+.video.rotated180 {
+    transform: rotate(180deg);
+}
+
+.video.rotated270 {
+    transform: rotate(270deg);
+}
+
+.video.flipH {
+    transform: scaleX(-1);
+}
+
+.video.flipV {
+    transform: scaleY(-1);
+}
+
+/* Combined transforms handled via inline style */
+
+/* Aspect Ratio Preview Container */
+.aspectPreview {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+}
+
+.aspectMask {
+    position: absolute;
+    background: rgba(0, 0, 0, 0.7);
+}
+
+/* Crop Overlay */
+.cropOverlay {
+    position: absolute;
+    inset: 0;
+    cursor: crosshair;
+}
+
+.cropMask {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+
+.cropMaskTop,
+.cropMaskBottom,
+.cropMaskLeft,
+.cropMaskRight {
+    position: absolute;
+    background: rgba(0, 0, 0, 0.6);
+}
+
+.cropMaskTop {
+    top: 0;
+    left: 0;
+    right: 0;
+}
+
+.cropMaskBottom {
+    bottom: 0;
+    left: 0;
+    right: 0;
+}
+
+.cropMaskLeft {
+    left: 0;
+}
+
+.cropMaskRight {
+    right: 0;
+}
+
+.cropBox {
+    position: absolute;
+    border: 2px solid var(--color-accent-primary);
+    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
+    cursor: move;
+}
+
+.cropHandle {
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    background: var(--color-accent-primary);
+    border: 2px solid white;
+    border-radius: 2px;
+}
+
+.cropHandle.topLeft {
+    top: -6px;
+    left: -6px;
+    cursor: nwse-resize;
+}
+
+.cropHandle.topRight {
+    top: -6px;
+    right: -6px;
+    cursor: nesw-resize;
+}
+
+.cropHandle.bottomLeft {
+    bottom: -6px;
+    left: -6px;
+    cursor: nesw-resize;
+}
+
+.cropHandle.bottomRight {
+    bottom: -6px;
+    right: -6px;
+    cursor: nwse-resize;
+}
+
+.cropHandle.top {
+    top: -6px;
+    left: 50%;
+    transform: translateX(-50%);
+    cursor: ns-resize;
+}
+
+.cropHandle.bottom {
+    bottom: -6px;
+    left: 50%;
+    transform: translateX(-50%);
+    cursor: ns-resize;
+}
+
+.cropHandle.left {
+    left: -6px;
+    top: 50%;
+    transform: translateY(-50%);
+    cursor: ew-resize;
+}
+
+.cropHandle.right {
+    right: -6px;
+    top: 50%;
+    transform: translateY(-50%);
+    cursor: ew-resize;
+}
+
+.cropGrid {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+
+.cropGridLine {
+    position: absolute;
+    background: rgba(255, 255, 255, 0.3);
+}
+
+.cropGridLine.h1 {
+    top: 33.33%;
+    left: 0;
+    right: 0;
+    height: 1px;
+}
+
+.cropGridLine.h2 {
+    top: 66.66%;
+    left: 0;
+    right: 0;
+    height: 1px;
+}
+
+.cropGridLine.v1 {
+    left: 33.33%;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+}
+
+.cropGridLine.v2 {
+    left: 66.66%;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+}
+
+.cropInfo {
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-family: var(--font-mono);
+    white-space: nowrap;
 }

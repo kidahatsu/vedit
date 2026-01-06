@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from 'react'
 import { Film, Plus, X, Upload } from 'lucide-react'
-import { useEditorStore, type Clip } from '../../store/editorStore'
+import { useEditorStore, type Clip, DEFAULT_TRANSFORM } from '../../store/editorStore'
 import { formatTime, generateId } from '../../lib/utils'
 import styles from './ClipsPanel.module.css'
 
@@ -21,7 +21,8 @@ export function ClipsPanel() {
                 thumbnailUrl: null,
                 trimStart: 0,
                 trimEnd: 0,
-                splitPoints: []
+                splitPoints: [],
+                transform: { ...DEFAULT_TRANSFORM }
             }
 
             // Get video duration and thumbnail

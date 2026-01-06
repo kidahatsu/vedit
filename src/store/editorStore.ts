@@ -1,5 +1,45 @@
 import { create } from 'zustand'
 
+// Aspect ratio presets with their target dimensions
+export type AspectRatioPreset = '16:9' | '9:16' | '1:1' | '4:5' | 'original'
+
+export const ASPECT_RATIO_DIMENSIONS: Record<Exclude<AspectRatioPreset, 'original'>, { width: number; height: number }> = {
+    '16:9': { width: 1920, height: 1080 },
+    '9:16': { width: 1080, height: 1920 },
+    '1:1': { width: 1080, height: 1080 },
+    '4:5': { width: 1080, height: 1350 },
+}
+
+// Transform state for each clip
+export interface TransformState {
+    // Aspect ratio preset (original = no change)
+    aspectRatio: AspectRatioPreset
+
+    // Crop region (0-1 normalized values, relative to original video)
+    cropX: number
+    cropY: number
+    cropWidth: number
+    cropHeight: number
+
+    // Rotation: 0, 90, 180, 270 degrees clockwise
+    rotation: 0 | 90 | 180 | 270
+
+    // Flip flags
+    flipH: boolean
+    flipV: boolean
+}
+
+export const DEFAULT_TRANSFORM: TransformState = {
+    aspectRatio: 'original',
+    cropX: 0,
+    cropY: 0,
+    cropWidth: 1,
+    cropHeight: 1,
+    rotation: 0,
+    flipH: false,
+    flipV: false,
+}
+
 export interface Clip {
     id: string
     file: File
@@ -9,6 +49,7 @@ export interface Clip {
     trimStart: number
     trimEnd: number
     splitPoints: number[]  // Timestamps where to split (sorted)
+    transform: TransformState  // Transform settings
 }
 
 interface EditorState {
@@ -16,6 +57,7 @@ interface EditorState {
     selectedClipId: string | null
     isLoading: boolean
     splitMode: boolean  // When true, clicking timeline adds split markers
+    cropMode: boolean   // When true, shows crop overlay on video
 
     // Actions
     addClip: (clip: Clip) => void
@@ -28,6 +70,9 @@ interface EditorState {
     reorderClips: (fromIndex: number, toIndex: number) => void
     setLoading: (loading: boolean) => void
     toggleSplitMode: () => void
+    toggleCropMode: () => void
+    updateTransform: (id: string, transform: Partial<TransformState>) => void
+    resetTransform: (id: string) => void
     reset: () => void
 }
 
@@ -36,6 +81,7 @@ export const useEditorStore = create<EditorState>((set) => ({
     selectedClipId: null,
     isLoading: false,
     splitMode: false,
+    cropMode: false,
 
     addClip: (clip) =>
         set((state) => ({
@@ -103,7 +149,26 @@ export const useEditorStore = create<EditorState>((set) => ({
     toggleSplitMode: () =>
         set((state) => ({ splitMode: !state.splitMode })),
 
+    toggleCropMode: () =>
+        set((state) => ({ cropMode: !state.cropMode })),
+
+    updateTransform: (id, transform) =>
+        set((state) => ({
+            clips: state.clips.map((c) =>
+                c.id === id
+                    ? { ...c, transform: { ...c.transform, ...transform } }
+                    : c
+            )
+        })),
+
+    resetTransform: (id) =>
+        set((state) => ({
+            clips: state.clips.map((c) =>
+                c.id === id ? { ...c, transform: { ...DEFAULT_TRANSFORM } } : c
+            )
+        })),
+
     reset: () =>
-        set({ clips: [], selectedClipId: null, isLoading: false, splitMode: false })
+        set({ clips: [], selectedClipId: null, isLoading: false, splitMode: false, cropMode: false })
 }))
 

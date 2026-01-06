@@ -1,7 +1,7 @@
 import { Scissors, Link, RotateCcw, Download, Split } from 'lucide-react'
-import { useEditorStore } from '../../store/editorStore'
+import { useEditorStore, DEFAULT_TRANSFORM } from '../../store/editorStore'
 import { useExportStore } from '../../store/exportStore'
-import { trimVideo, mergeVideos, splitVideo } from '../../lib/ffmpeg'
+import { trimVideo, mergeVideos, splitVideo, transformVideo } from '../../lib/ffmpeg'
 import styles from './ActionBar.module.css'
 
 interface ActionBarProps {
@@ -18,6 +18,22 @@ export function ActionBar({ onOpenExportModal }: ActionBarProps) {
     const canSplit = selectedClip && selectedClip.splitPoints.length > 0
 
 
+    // Check if clip has any transforms applied
+    const hasTransforms = (clip: typeof selectedClip) => {
+        if (!clip) return false
+        const t = clip.transform
+        return (
+            t.aspectRatio !== DEFAULT_TRANSFORM.aspectRatio ||
+            t.rotation !== DEFAULT_TRANSFORM.rotation ||
+            t.flipH !== DEFAULT_TRANSFORM.flipH ||
+            t.flipV !== DEFAULT_TRANSFORM.flipV ||
+            t.cropX !== DEFAULT_TRANSFORM.cropX ||
+            t.cropY !== DEFAULT_TRANSFORM.cropY ||
+            t.cropWidth !== DEFAULT_TRANSFORM.cropWidth ||
+            t.cropHeight !== DEFAULT_TRANSFORM.cropHeight
+        )
+    }
+
     const handleTrim = async () => {
         if (!selectedClip) return
 
@@ -25,12 +41,37 @@ export function ActionBar({ onOpenExportModal }: ActionBarProps) {
             startExport()
             onOpenExportModal()
 
-            const blob = await trimVideo(
-                selectedClip.file,
-                selectedClip.trimStart,
-                selectedClip.trimEnd,
-                (progress, message) => setProcessing(progress, message)
-            )
+            let blob: Blob
+
+            // Use transformVideo if clip has transforms, otherwise use simpler trimVideo
+            if (hasTransforms(selectedClip)) {
+                const { transform } = selectedClip
+                blob = await transformVideo(
+                    selectedClip.file,
+                    selectedClip.trimStart,
+                    selectedClip.trimEnd,
+                    {
+                        aspectRatio: transform.aspectRatio,
+                        rotation: transform.rotation,
+                        flipH: transform.flipH,
+                        flipV: transform.flipV,
+                        crop: {
+                            x: transform.cropX,
+                            y: transform.cropY,
+                            width: transform.cropWidth,
+                            height: transform.cropHeight
+                        }
+                    },
+                    (progress, message) => setProcessing(progress, message)
+                )
+            } else {
+                blob = await trimVideo(
+                    selectedClip.file,
+                    selectedClip.trimStart,
+                    selectedClip.trimEnd,
+                    (progress, message) => setProcessing(progress, message)
+                )
+            }
 
             const url = URL.createObjectURL(blob)
             setComplete(url)
