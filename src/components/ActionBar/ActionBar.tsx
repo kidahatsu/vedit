@@ -27,6 +27,7 @@ export function ActionBar({ onOpenExportModal }: ActionBarProps) {
             t.rotation !== DEFAULT_TRANSFORM.rotation ||
             t.flipH !== DEFAULT_TRANSFORM.flipH ||
             t.flipV !== DEFAULT_TRANSFORM.flipV ||
+            t.speed !== DEFAULT_TRANSFORM.speed ||
             t.cropX !== DEFAULT_TRANSFORM.cropX ||
             t.cropY !== DEFAULT_TRANSFORM.cropY ||
             t.cropWidth !== DEFAULT_TRANSFORM.cropWidth ||
@@ -55,6 +56,7 @@ export function ActionBar({ onOpenExportModal }: ActionBarProps) {
                         rotation: transform.rotation,
                         flipH: transform.flipH,
                         flipV: transform.flipV,
+                        speed: transform.speed,
                         crop: {
                             x: transform.cropX,
                             y: transform.cropY,

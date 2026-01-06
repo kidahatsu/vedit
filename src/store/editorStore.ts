@@ -27,6 +27,9 @@ export interface TransformState {
     // Flip flags
     flipH: boolean
     flipV: boolean
+
+    // Playback speed multiplier
+    speed: 0.5 | 0.75 | 1 | 1.5 | 2
 }
 
 export const DEFAULT_TRANSFORM: TransformState = {
@@ -38,6 +41,7 @@ export const DEFAULT_TRANSFORM: TransformState = {
     rotation: 0,
     flipH: false,
     flipV: false,
+    speed: 1,
 }
 
 export interface Clip {

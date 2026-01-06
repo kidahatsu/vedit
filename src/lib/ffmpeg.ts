@@ -9,6 +9,7 @@ export interface TransformOptions {
     rotation?: 0 | 90 | 180 | 270
     flipH?: boolean
     flipV?: boolean
+    speed?: 0.5 | 0.75 | 1 | 1.5 | 2
     sourceWidth?: number
     sourceHeight?: number
 }
@@ -243,14 +244,22 @@ function getExtension(filename: string): string {
 
 /**
  * Build FFmpeg filter chain from transform options
- * Order: rotation -> flip -> crop -> scale/pad for aspect ratio
+ * Order: speed -> rotation -> flip -> crop -> scale/pad for aspect ratio
+ * Note: Speed is handled via setpts for video, atempo for audio separately
  */
 export function buildFilterChain(transform: TransformOptions): string[] {
     const filters: string[] = []
 
-    const { aspectRatio, crop, rotation, flipH, flipV, sourceWidth, sourceHeight } = transform
+    const { aspectRatio, crop, rotation, flipH, flipV, speed, sourceWidth, sourceHeight } = transform
 
-    // 1. Rotation (transpose filter)
+    // 1. Speed (video only - audio handled separately)
+    if (speed && speed !== 1) {
+        // setpts=PTS/speed for faster, PTS*factor for slower
+        const ptsFactor = 1 / speed
+        filters.push(`setpts=${ptsFactor.toFixed(4)}*PTS`)
+    }
+
+    // 2. Rotation (transpose filter)
     // transpose=0: 90° CCW + vertical flip
     // transpose=1: 90° CW
     // transpose=2: 90° CCW
@@ -263,7 +272,7 @@ export function buildFilterChain(transform: TransformOptions): string[] {
         filters.push('transpose=2')
     }
 
-    // 2. Flip
+    // 3. Flip
     if (flipH) {
         filters.push('hflip')
     }
@@ -271,7 +280,7 @@ export function buildFilterChain(transform: TransformOptions): string[] {
         filters.push('vflip')
     }
 
-    // 3. Crop (using normalized values)
+    // 4. Crop (using normalized values)
     if (crop && (crop.x !== 0 || crop.y !== 0 || crop.width !== 1 || crop.height !== 1)) {
         // Need source dimensions to calculate absolute crop values
         // Use 'iw' and 'ih' for input width/height if not provided
@@ -287,7 +296,7 @@ export function buildFilterChain(transform: TransformOptions): string[] {
         }
     }
 
-    // 4. Aspect ratio with letterbox/pillarbox padding
+    // 5. Aspect ratio with letterbox/pillarbox padding
     if (aspectRatio && aspectRatio !== 'original') {
         const dims = ASPECT_RATIO_DIMENSIONS[aspectRatio]
         filters.push(
@@ -297,6 +306,15 @@ export function buildFilterChain(transform: TransformOptions): string[] {
     }
 
     return filters
+}
+
+/**
+ * Build audio filter for speed changes with pitch correction
+ * atempo only supports 0.5-2.0
+ */
+export function buildAudioSpeedFilter(speed: number): string | null {
+    if (!speed || speed === 1) return null
+    return `atempo=${speed}`
 }
 
 /**
@@ -326,10 +344,16 @@ export async function transformVideo(
         '-to', trimEnd.toFixed(3),
     ]
 
-    // Add filter chain if there are transforms
+    // Add video filter chain if there are transforms
     const filters = buildFilterChain(transform)
     if (filters.length > 0) {
         args.push('-vf', filters.join(','))
+    }
+
+    // Add audio filter for speed changes (atempo for pitch correction)
+    const audioFilter = buildAudioSpeedFilter(transform.speed || 1)
+    if (audioFilter) {
+        args.push('-af', audioFilter)
     }
 
     // Output settings

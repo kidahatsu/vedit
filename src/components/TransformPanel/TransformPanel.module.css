@@ -157,3 +157,29 @@
     border-color: var(--color-accent-secondary);
     color: var(--color-bg-primary);
 }
+
+/* Speed Buttons */
+.speedBtn {
+    padding: var(--space-2) var(--space-3);
+    background: var(--color-bg-tertiary);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    min-width: 44px;
+}
+
+.speedBtn:hover {
+    background: var(--color-bg-primary);
+    border-color: var(--color-accent-primary);
+    color: var(--color-text-primary);
+}
+
+.speedBtn.active {
+    background: var(--color-accent-primary);
+    border-color: var(--color-accent-primary);
+    color: var(--color-bg-primary);
+}

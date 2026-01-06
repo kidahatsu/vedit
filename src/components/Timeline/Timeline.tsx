@@ -55,7 +55,12 @@ export function Timeline({ onSeekPreview }: TimelineProps) {
     )
 
     const handleClipMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>, clip: typeof selectedClip) => {
-        if (!clip || !splitMode) return
+        // Only track hover for split mode on the selected clip
+        if (!clip || !splitMode || clip.id !== selectedClipId) {
+            setHoverTime(null)
+            setHoverPercent(null)
+            return
+        }
 
         const rect = e.currentTarget.getBoundingClientRect()
         const x = e.clientX - rect.left
@@ -69,7 +74,7 @@ export function Timeline({ onSeekPreview }: TimelineProps) {
         if (onSeekPreview && time >= clip.trimStart && time <= clip.trimEnd) {
             onSeekPreview(time)
         }
-    }, [splitMode, onSeekPreview])
+    }, [splitMode, selectedClipId, onSeekPreview])
 
     const handleClipMouseLeave = useCallback(() => {
         setHoverTime(null)
@@ -79,15 +84,17 @@ export function Timeline({ onSeekPreview }: TimelineProps) {
     const handleClipClick = useCallback((_e: React.MouseEvent<HTMLDivElement>, clip: typeof selectedClip) => {
         if (!clip) return
 
-        if (splitMode && hoverTime !== null) {
+        // In split mode on the selected clip with valid hover position
+        if (splitMode && clip.id === selectedClipId && hoverTime !== null) {
             // Only add split if within trim range
             if (hoverTime > clip.trimStart && hoverTime < clip.trimEnd) {
                 addSplitPoint(clip.id, hoverTime)
             }
-        } else if (!splitMode) {
+        } else {
+            // Select the clip (works in both split mode and normal mode)
             selectClip(clip.id)
         }
-    }, [splitMode, hoverTime, addSplitPoint, selectClip])
+    }, [splitMode, selectedClipId, hoverTime, addSplitPoint, selectClip])
 
     if (clips.length === 0) {
         return (

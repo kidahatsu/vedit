@@ -73,6 +73,14 @@ export function VideoPlayer() {
         }
     }, [selectedClip])
 
+    // Sync playback rate with speed transform for live preview
+    useEffect(() => {
+        const video = videoRef.current
+        if (!video || !selectedClip) return
+
+        video.playbackRate = selectedClip.transform.speed
+    }, [selectedClip?.transform.speed])
+
     const togglePlay = useCallback(() => {
         const video = videoRef.current
         if (!video) return
