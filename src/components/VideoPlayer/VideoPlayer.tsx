@@ -7,7 +7,7 @@ import styles from './VideoPlayer.module.css'
 type DragHandle = 'topLeft' | 'topRight' | 'bottomLeft' | 'bottomRight' | 'top' | 'bottom' | 'left' | 'right' | 'move' | null
 
 export function VideoPlayer() {
-    const { clips, selectedClipId, cropMode, updateClipTrim, addSplitPoint, updateTransform } = useEditorStore()
+    const { clips, selectedClipId, cropMode, updateClipTrim, addSplitPoint, updateTransform, seekPreviewTime, setSeekPreviewTime } = useEditorStore()
     const selectedClip = clips.find((c) => c.id === selectedClipId)
 
     const videoRef = useRef<HTMLVideoElement>(null)
@@ -80,6 +80,17 @@ export function VideoPlayer() {
 
         video.playbackRate = selectedClip.transform.speed
     }, [selectedClip?.transform.speed])
+
+    // Respond to seek preview requests from Timeline
+    useEffect(() => {
+        const video = videoRef.current
+        if (!video || seekPreviewTime === null) return
+
+        video.currentTime = seekPreviewTime
+        setCurrentTime(seekPreviewTime)
+        // Clear the preview request
+        setSeekPreviewTime(null)
+    }, [seekPreviewTime, setSeekPreviewTime])
 
     const togglePlay = useCallback(() => {
         const video = videoRef.current
@@ -284,6 +295,14 @@ export function VideoPlayer() {
         height: `${selectedClip.transform.cropHeight * 100}%`
     } : null
 
+    // Check if a non-default crop is applied (not full frame)
+    const isCropped = selectedClip && (
+        selectedClip.transform.cropX !== 0 ||
+        selectedClip.transform.cropY !== 0 ||
+        selectedClip.transform.cropWidth !== 1 ||
+        selectedClip.transform.cropHeight !== 1
+    )
+
     // Aspect ratio preview - calculate letterbox/pillarbox effect
     const aspectRatioStyle = useMemo(() => {
         if (!selectedClip || selectedClip.transform.aspectRatio === 'original') {
@@ -329,7 +348,23 @@ export function VideoPlayer() {
                             </div>
                         )}
 
-                        {/* Crop Overlay */}
+                        {/* Crop Preview Indicator (when crop mode is off but crop is applied) */}
+                        {!cropMode && isCropped && selectedClip && cropBox && (
+                            <div className={styles.cropPreviewOverlay}>
+                                <div
+                                    className={styles.cropPreviewBox}
+                                    style={cropBox}
+                                    onClick={() => useEditorStore.getState().toggleCropMode()}
+                                    title="Click to edit crop region"
+                                >
+                                    <div className={styles.cropPreviewLabel}>
+                                        ✂️ {Math.round(selectedClip.transform.cropWidth * 100)}% × {Math.round(selectedClip.transform.cropHeight * 100)}%
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Crop Overlay (edit mode) */}
                         {cropMode && selectedClip && cropBox && (
                             <div className={styles.cropOverlay}>
                                 <div

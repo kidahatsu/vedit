@@ -3,20 +3,20 @@ import { useEditorStore } from '../../store/editorStore'
 import { formatTime, clamp } from '../../lib/utils'
 import styles from './Timeline.module.css'
 
-interface TimelineProps {
-    onSeekPreview?: (time: number) => void
-}
-
-export function Timeline({ onSeekPreview }: TimelineProps) {
+export function Timeline() {
     const {
         clips, selectedClipId, selectClip, updateClipTrim,
-        removeSplitPoint, addSplitPoint, splitMode, toggleSplitMode
+        removeSplitPoint, addSplitPoint, updateSplitPoint, splitMode, toggleSplitMode,
+        setSeekPreviewTime
     } = useEditorStore()
     const selectedClip = clips.find((c) => c.id === selectedClipId)
 
     const [_dragging, setDragging] = useState<'left' | 'right' | null>(null)
     const [hoverTime, setHoverTime] = useState<number | null>(null)
     const [hoverPercent, setHoverPercent] = useState<number | null>(null)
+    // Split marker drag state
+    const [draggingSplitTime, setDraggingSplitTime] = useState<number | null>(null)
+    const [dragPreviewTime, setDragPreviewTime] = useState<number | null>(null)
     const clipRef = useRef<HTMLDivElement>(null)
 
     const handleTrimDrag = useCallback(
@@ -71,15 +71,61 @@ export function Timeline({ onSeekPreview }: TimelineProps) {
         setHoverTime(time)
 
         // Preview the frame in video player
-        if (onSeekPreview && time >= clip.trimStart && time <= clip.trimEnd) {
-            onSeekPreview(time)
+        if (time >= clip.trimStart && time <= clip.trimEnd) {
+            setSeekPreviewTime(time)
         }
-    }, [splitMode, selectedClipId, onSeekPreview])
+    }, [splitMode, selectedClipId, setSeekPreviewTime])
 
     const handleClipMouseLeave = useCallback(() => {
         setHoverTime(null)
         setHoverPercent(null)
     }, [])
+
+    // Split marker drag handlers
+    const handleSplitMarkerDragStart = useCallback((e: React.MouseEvent, splitTime: number, clip: typeof selectedClip) => {
+        e.stopPropagation()
+        e.preventDefault()
+        if (!clip || !clipRef.current) return
+
+        setDraggingSplitTime(splitTime)
+        setDragPreviewTime(splitTime)
+
+        const clipRect = clipRef.current.getBoundingClientRect()
+        const duration = clip.duration
+
+        const handleMouseMove = (moveEvent: MouseEvent) => {
+            const x = moveEvent.clientX - clipRect.left
+            const percent = clamp(x / clipRect.width, 0, 1)
+            const time = percent * duration
+            // Clamp within trim range
+            const clampedTime = clamp(time, clip.trimStart + 0.01, clip.trimEnd - 0.01)
+            setDragPreviewTime(clampedTime)
+
+            // Live video preview while dragging
+            setSeekPreviewTime(clampedTime)
+        }
+
+        const handleMouseUp = (upEvent: MouseEvent) => {
+            const x = upEvent.clientX - clipRect.left
+            const percent = clamp(x / clipRect.width, 0, 1)
+            const time = percent * duration
+            const clampedTime = clamp(time, clip.trimStart + 0.01, clip.trimEnd - 0.01)
+
+            // Update the split point position
+            updateSplitPoint(clip.id, splitTime, clampedTime)
+
+            // Trigger video preview at new position
+            setSeekPreviewTime(clampedTime)
+
+            setDraggingSplitTime(null)
+            setDragPreviewTime(null)
+            window.removeEventListener('mousemove', handleMouseMove)
+            window.removeEventListener('mouseup', handleMouseUp)
+        }
+
+        window.addEventListener('mousemove', handleMouseMove)
+        window.addEventListener('mouseup', handleMouseUp)
+    }, [updateSplitPoint, setSeekPreviewTime])
 
     const handleClipClick = useCallback((_e: React.MouseEvent<HTMLDivElement>, clip: typeof selectedClip) => {
         if (!clip) return
@@ -89,12 +135,14 @@ export function Timeline({ onSeekPreview }: TimelineProps) {
             // Only add split if within trim range
             if (hoverTime > clip.trimStart && hoverTime < clip.trimEnd) {
                 addSplitPoint(clip.id, hoverTime)
+                // Trigger video preview at the split position
+                setSeekPreviewTime(hoverTime)
             }
         } else {
             // Select the clip (works in both split mode and normal mode)
             selectClip(clip.id)
         }
-    }, [splitMode, selectedClipId, hoverTime, addSplitPoint, selectClip])
+    }, [splitMode, selectedClipId, hoverTime, addSplitPoint, selectClip, setSeekPreviewTime])
 
     if (clips.length === 0) {
         return (
@@ -162,23 +210,32 @@ export function Timeline({ onSeekPreview }: TimelineProps) {
 
                                         {/* Split markers */}
                                         {clip.splitPoints.map((splitTime) => {
-                                            const splitPercent = (splitTime / clip.duration) * 100
+                                            const isDragging = draggingSplitTime === splitTime
+                                            const displayTime = isDragging && dragPreviewTime !== null ? dragPreviewTime : splitTime
+                                            const splitPercent = (displayTime / clip.duration) * 100
                                             return (
                                                 <div
                                                     key={splitTime}
-                                                    className={styles.splitMarker}
+                                                    className={`${styles.splitMarker} ${isDragging ? styles.splitMarkerDragging : ''}`}
                                                     style={{ left: `${splitPercent}%` }}
-                                                    onClick={(e) => {
+                                                    onMouseDown={(e) => handleSplitMarkerDragStart(e, splitTime, clip)}
+                                                    onDoubleClick={(e) => {
                                                         e.stopPropagation()
                                                         removeSplitPoint(clip.id, splitTime)
                                                     }}
-                                                    title={`Split at ${formatTime(splitTime)} (click to remove)`}
-                                                />
+                                                    title={`Split at ${formatTime(displayTime)} (drag to move, double-click to remove)`}
+                                                >
+                                                    {isDragging && (
+                                                        <span className={styles.splitCursorTime}>
+                                                            {formatTime(displayTime)}
+                                                        </span>
+                                                    )}
+                                                </div>
                                             )
                                         })}
 
                                         {/* Hover cursor in split mode */}
-                                        {splitMode && hoverPercent !== null && hoverTime !== null && (
+                                        {splitMode && hoverPercent !== null && hoverTime !== null && !draggingSplitTime && (
                                             <div
                                                 className={styles.splitCursor}
                                                 style={{ left: `${hoverPercent}%` }}

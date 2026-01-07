@@ -62,6 +62,7 @@ interface EditorState {
     isLoading: boolean
     splitMode: boolean  // When true, clicking timeline adds split markers
     cropMode: boolean   // When true, shows crop overlay on video
+    seekPreviewTime: number | null  // Time to seek video preview to (set by Timeline)
 
     // Actions
     addClip: (clip: Clip) => void
@@ -70,11 +71,13 @@ interface EditorState {
     updateClipTrim: (id: string, trimStart: number, trimEnd: number) => void
     addSplitPoint: (id: string, time: number) => void
     removeSplitPoint: (id: string, time: number) => void
+    updateSplitPoint: (id: string, oldTime: number, newTime: number) => void
     clearSplitPoints: (id: string) => void
     reorderClips: (fromIndex: number, toIndex: number) => void
     setLoading: (loading: boolean) => void
     toggleSplitMode: () => void
     toggleCropMode: () => void
+    setSeekPreviewTime: (time: number | null) => void
     updateTransform: (id: string, transform: Partial<TransformState>) => void
     resetTransform: (id: string) => void
     reset: () => void
@@ -86,6 +89,7 @@ export const useEditorStore = create<EditorState>((set) => ({
     isLoading: false,
     splitMode: false,
     cropMode: false,
+    seekPreviewTime: null,
 
     addClip: (clip) =>
         set((state) => ({
@@ -132,6 +136,22 @@ export const useEditorStore = create<EditorState>((set) => ({
             )
         })),
 
+    updateSplitPoint: (id, oldTime, newTime) =>
+        set((state) => ({
+            clips: state.clips.map((c) => {
+                if (c.id !== id) return c
+                // Remove old point, add new one if valid
+                const filtered = c.splitPoints.filter((t) => t !== oldTime)
+                // Only add if within trim range and not duplicate
+                if (newTime <= c.trimStart || newTime >= c.trimEnd) return { ...c, splitPoints: filtered }
+                if (filtered.includes(newTime)) return { ...c, splitPoints: filtered }
+                return {
+                    ...c,
+                    splitPoints: [...filtered, newTime].sort((a, b) => a - b)
+                }
+            })
+        })),
+
     clearSplitPoints: (id) =>
         set((state) => ({
             clips: state.clips.map((c) =>
@@ -155,6 +175,9 @@ export const useEditorStore = create<EditorState>((set) => ({
 
     toggleCropMode: () =>
         set((state) => ({ cropMode: !state.cropMode })),
+
+    setSeekPreviewTime: (time) =>
+        set({ seekPreviewTime: time }),
 
     updateTransform: (id, transform) =>
         set((state) => ({

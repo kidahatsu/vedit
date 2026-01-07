@@ -175,7 +175,7 @@
     bottom: 0;
     width: 3px;
     background: var(--color-accent-warning);
-    cursor: pointer;
+    cursor: grab;
     z-index: 10;
     transform: translateX(-50%);
     transition: all var(--transition-fast);
@@ -195,12 +195,24 @@
 }
 
 .splitMarker:hover {
-    background: var(--color-accent-error);
+    background: var(--color-accent-secondary);
     width: 5px;
 }
 
 .splitMarker:hover::before {
-    border-top-color: var(--color-accent-error);
+    border-top-color: var(--color-accent-secondary);
+}
+
+.splitMarkerDragging {
+    background: var(--color-accent-secondary);
+    width: 4px;
+    cursor: grabbing;
+    z-index: 25;
+    box-shadow: 0 0 12px var(--color-accent-secondary);
+}
+
+.splitMarkerDragging::before {
+    border-top-color: var(--color-accent-secondary);
 }
 
 /* Split mode styles */

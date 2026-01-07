@@ -373,3 +373,38 @@
     font-family: var(--font-mono);
     white-space: nowrap;
 }
+
+/* Crop Preview (when not in edit mode) */
+.cropPreviewOverlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+
+.cropPreviewBox {
+    position: absolute;
+    border: 2px dashed var(--color-accent-warning);
+    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.4);
+    cursor: pointer;
+    pointer-events: auto;
+    transition: all var(--transition-fast);
+}
+
+.cropPreviewBox:hover {
+    border-color: var(--color-accent-primary);
+    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
+}
+
+.cropPreviewLabel {
+    position: absolute;
+    top: var(--space-2);
+    left: var(--space-2);
+    background: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(4px);
+    color: var(--color-accent-warning);
+    padding: var(--space-1) var(--space-2);
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-xs);
+    font-family: var(--font-mono);
+    white-space: nowrap;
+}
