@@ -1,7 +1,11 @@
 import { useCallback, useRef, useState } from 'react'
 import { useEditorStore } from '../../store/editorStore'
+import { useSelectedClip } from '../../store/selectors'
 import { formatTime, clamp } from '../../lib/utils'
 import styles from './Timeline.module.css'
+
+/** Minimum interval between seek preview updates (ms) */
+const SEEK_PREVIEW_THROTTLE_MS = 100
 
 export function Timeline() {
     const {
@@ -9,9 +13,8 @@ export function Timeline() {
         removeSplitPoint, addSplitPoint, updateSplitPoint, splitMode, toggleSplitMode,
         setSeekPreviewTime
     } = useEditorStore()
-    const selectedClip = clips.find((c) => c.id === selectedClipId)
+    const selectedClip = useSelectedClip()
 
-    const [_dragging, setDragging] = useState<'left' | 'right' | null>(null)
     const [hoverTime, setHoverTime] = useState<number | null>(null)
     const [hoverPercent, setHoverPercent] = useState<number | null>(null)
     // Split marker drag state
@@ -19,12 +22,14 @@ export function Timeline() {
     const [dragPreviewTime, setDragPreviewTime] = useState<number | null>(null)
     const clipRef = useRef<HTMLDivElement>(null)
 
+    // Throttle ref for seek preview
+    const lastSeekTimeRef = useRef<number>(0)
+
     const handleTrimDrag = useCallback(
         (e: React.MouseEvent, handle: 'left' | 'right') => {
             e.stopPropagation()
             if (!selectedClip || !clipRef.current) return
 
-            setDragging(handle)
             const clipRect = clipRef.current.getBoundingClientRect()
             const duration = selectedClip.duration
 
@@ -43,7 +48,6 @@ export function Timeline() {
             }
 
             const handleMouseUp = () => {
-                setDragging(null)
                 window.removeEventListener('mousemove', handleMouseMove)
                 window.removeEventListener('mouseup', handleMouseUp)
             }
@@ -53,6 +57,18 @@ export function Timeline() {
         },
         [selectedClip, updateClipTrim]
     )
+
+    /**
+     * Throttled seek preview update.
+     * Limits calls to once per SEEK_PREVIEW_THROTTLE_MS to prevent excessive renders.
+     */
+    const throttledSeekPreview = useCallback((time: number) => {
+        const now = Date.now()
+        if (now - lastSeekTimeRef.current >= SEEK_PREVIEW_THROTTLE_MS) {
+            setSeekPreviewTime(time)
+            lastSeekTimeRef.current = now
+        }
+    }, [setSeekPreviewTime])
 
     const handleClipMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>, clip: typeof selectedClip) => {
         // Only track hover for split mode on the selected clip
@@ -70,11 +86,11 @@ export function Timeline() {
         setHoverPercent(percent * 100)
         setHoverTime(time)
 
-        // Preview the frame in video player
+        // Preview the frame in video player (throttled)
         if (time >= clip.trimStart && time <= clip.trimEnd) {
-            setSeekPreviewTime(time)
+            throttledSeekPreview(time)
         }
-    }, [splitMode, selectedClipId, setSeekPreviewTime])
+    }, [splitMode, selectedClipId, throttledSeekPreview])
 
     const handleClipMouseLeave = useCallback(() => {
         setHoverTime(null)
@@ -93,39 +109,44 @@ export function Timeline() {
         const clipRect = clipRef.current.getBoundingClientRect()
         const duration = clip.duration
 
+        // Track the last calculated time for use in mouseup
+        let lastClampedTime = splitTime
+
         const handleMouseMove = (moveEvent: MouseEvent) => {
             const x = moveEvent.clientX - clipRect.left
             const percent = clamp(x / clipRect.width, 0, 1)
             const time = percent * duration
             // Clamp within trim range
-            const clampedTime = clamp(time, clip.trimStart + 0.01, clip.trimEnd - 0.01)
-            setDragPreviewTime(clampedTime)
+            lastClampedTime = clamp(time, clip.trimStart + 0.01, clip.trimEnd - 0.01)
+            setDragPreviewTime(lastClampedTime)
 
             // Live video preview while dragging
-            setSeekPreviewTime(clampedTime)
+            useEditorStore.getState().setSeekPreviewTime(lastClampedTime)
         }
 
-        const handleMouseUp = (upEvent: MouseEvent) => {
-            const x = upEvent.clientX - clipRect.left
-            const percent = clamp(x / clipRect.width, 0, 1)
-            const time = percent * duration
-            const clampedTime = clamp(time, clip.trimStart + 0.01, clip.trimEnd - 0.01)
+        const handleMouseUp = () => {
+            const finalTime = lastClampedTime
 
             // Update the split point position
-            updateSplitPoint(clip.id, splitTime, clampedTime)
+            updateSplitPoint(clip.id, splitTime, finalTime)
 
-            // Trigger video preview at new position
-            setSeekPreviewTime(clampedTime)
-
+            // Reset drag state first
             setDraggingSplitTime(null)
             setDragPreviewTime(null)
+
+            // Trigger video preview at final position AFTER state updates
+            // Use requestAnimationFrame to ensure React has processed state updates
+            requestAnimationFrame(() => {
+                useEditorStore.getState().setSeekPreviewTime(finalTime)
+            })
+
             window.removeEventListener('mousemove', handleMouseMove)
             window.removeEventListener('mouseup', handleMouseUp)
         }
 
         window.addEventListener('mousemove', handleMouseMove)
         window.addEventListener('mouseup', handleMouseUp)
-    }, [updateSplitPoint, setSeekPreviewTime])
+    }, [updateSplitPoint])
 
     const handleClipClick = useCallback((_e: React.MouseEvent<HTMLDivElement>, clip: typeof selectedClip) => {
         if (!clip) return

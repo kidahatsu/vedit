@@ -26,17 +26,22 @@ export function VideoPlayer() {
     const [cropStart, setCropStart] = useState({ x: 0, y: 0, width: 1, height: 1 })
 
     // Create object URL when clip changes
+    // Note: Only depends on selectedClipId to prevent resetting currentTime 
+    // when clip metadata (like splitPoints) is updated
     useEffect(() => {
         if (selectedClip) {
             const url = URL.createObjectURL(selectedClip.file)
             setVideoUrl(url)
+            // Only reset time when switching to a different clip, not when
+            // the same clip's metadata changes (e.g., split point drag)
             setCurrentTime(selectedClip.trimStart)
             return () => URL.revokeObjectURL(url)
         } else {
             setVideoUrl(null)
             setIsPlaying(false)
         }
-    }, [selectedClip])
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedClipId])
 
     // Sync video element with state
     useEffect(() => {

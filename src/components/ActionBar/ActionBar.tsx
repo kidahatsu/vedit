@@ -1,7 +1,11 @@
 import { Scissors, Link, RotateCcw, Download, Split } from 'lucide-react'
-import { useEditorStore, DEFAULT_TRANSFORM } from '../../store/editorStore'
+import { useEditorStore } from '../../store/editorStore'
+import { useSelectedClip, useHasClips, useCanMerge, useCanSplit } from '../../store/selectors'
 import { useExportStore } from '../../store/exportStore'
 import { trimVideo, mergeVideos, splitVideo, transformVideo } from '../../lib/ffmpeg'
+import { wrapError } from '../../lib/errors'
+import { hasTransformsApplied } from '../../utils/videoTransforms'
+import { sanitizeFilename } from '../../utils/validation'
 import styles from './ActionBar.module.css'
 
 interface ActionBarProps {
@@ -9,31 +13,15 @@ interface ActionBarProps {
 }
 
 export function ActionBar({ onOpenExportModal }: ActionBarProps) {
-    const { clips, selectedClipId, reset } = useEditorStore()
+    const { clips, reset } = useEditorStore()
     const { startExport, setProcessing, setComplete, setError } = useExportStore()
 
-    const selectedClip = clips.find((c) => c.id === selectedClipId)
-    const hasClips = clips.length > 0
-    const canMerge = clips.length >= 2
-    const canSplit = selectedClip && selectedClip.splitPoints.length > 0
+    const selectedClip = useSelectedClip()
+    const hasClips = useHasClips()
+    const canMerge = useCanMerge()
+    const canSplit = useCanSplit()
 
 
-    // Check if clip has any transforms applied
-    const hasTransforms = (clip: typeof selectedClip) => {
-        if (!clip) return false
-        const t = clip.transform
-        return (
-            t.aspectRatio !== DEFAULT_TRANSFORM.aspectRatio ||
-            t.rotation !== DEFAULT_TRANSFORM.rotation ||
-            t.flipH !== DEFAULT_TRANSFORM.flipH ||
-            t.flipV !== DEFAULT_TRANSFORM.flipV ||
-            t.speed !== DEFAULT_TRANSFORM.speed ||
-            t.cropX !== DEFAULT_TRANSFORM.cropX ||
-            t.cropY !== DEFAULT_TRANSFORM.cropY ||
-            t.cropWidth !== DEFAULT_TRANSFORM.cropWidth ||
-            t.cropHeight !== DEFAULT_TRANSFORM.cropHeight
-        )
-    }
 
     const handleTrim = async () => {
         if (!selectedClip) return
@@ -45,7 +33,7 @@ export function ActionBar({ onOpenExportModal }: ActionBarProps) {
             let blob: Blob
 
             // Use transformVideo if clip has transforms, otherwise use simpler trimVideo
-            if (hasTransforms(selectedClip)) {
+            if (hasTransformsApplied(selectedClip.transform)) {
                 const { transform } = selectedClip
                 blob = await transformVideo(
                     selectedClip.file,
@@ -78,7 +66,9 @@ export function ActionBar({ onOpenExportModal }: ActionBarProps) {
             const url = URL.createObjectURL(blob)
             setComplete(url)
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Export failed')
+            const error = wrapError(err, 'trim', { filename: selectedClip.name })
+            console.error('[ActionBar]', error.toJSON())
+            setError(error.userMessage)
         }
     }
 
@@ -101,7 +91,9 @@ export function ActionBar({ onOpenExportModal }: ActionBarProps) {
             const url = URL.createObjectURL(blob)
             setComplete(url)
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Merge failed')
+            const error = wrapError(err, 'merge', { clipCount: clips.length })
+            console.error('[ActionBar]', error.toJSON())
+            setError(error.userMessage)
         }
     }
 
@@ -120,8 +112,10 @@ export function ActionBar({ onOpenExportModal }: ActionBarProps) {
                 (progress, message) => setProcessing(progress, message)
             )
 
-            // Download all segments
-            const baseName = selectedClip.name.replace(/\.[^/.]+$/, '')
+            // Download all segments with sanitized filenames
+            const baseName = sanitizeFilename(
+                selectedClip.name.replace(/\.[^/.]+$/, '')
+            )
             blobs.forEach((blob, i) => {
                 const url = URL.createObjectURL(blob)
                 const a = document.createElement('a')
@@ -135,7 +129,12 @@ export function ActionBar({ onOpenExportModal }: ActionBarProps) {
 
             setComplete('') // No single URL, files already downloaded
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Split failed')
+            const error = wrapError(err, 'split', {
+                filename: selectedClip.name,
+                splitPoints: selectedClip.splitPoints.length
+            })
+            console.error('[ActionBar]', error.toJSON())
+            setError(error.userMessage)
         }
     }
 
