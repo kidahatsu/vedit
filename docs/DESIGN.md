@@ -24,8 +24,10 @@
 | **Merge** | Combine multiple clips in sequence | ✅ Done |
 | **Preview** | Real-time playback of edits | ✅ Done |
 | **Export** | MP4 output with H.264 encoding | ✅ Done |
-| **Transform** | Aspect ratio, crop, rotate | 🔜 Planned |
-| **Reorder** | Drag clips to reorder in timeline | 🔜 Planned |
+| **Transform** | Aspect ratio, crop, rotate, flip | ✅ Done |
+| **Speed** | 0.5x to 2x playback speed | ✅ Done |
+| **WebCodecs** | Frame-accurate splitting (Chrome) | ✅ Done |
+| **Testing** | 58 unit/integration tests | ✅ Done |
 | **Undo/Redo** | Full edit history | 🔜 Planned |
 
 ## Design Principles
@@ -122,11 +124,13 @@
 
 | Layer | Technology | Rationale |
 |-------|------------|-----------|
-| **Build** | Vite | Fast HMR, optimized builds |
-| **UI** | React 18 + TypeScript | Component model, type safety |
-| **State** | Zustand | Lightweight, simple API |
+| **Build** | Vite 6 | Fast HMR, optimized builds |
+| **UI** | React 19 + TypeScript | Component model, type safety |
+| **State** | Zustand 5 | Lightweight, simple API |
 | **Video** | ffmpeg.wasm 0.12+ | Browser-native FFmpeg |
+| **Splitting** | WebCodecs + mp4box.js | Frame-accurate (with FFmpeg fallback) |
 | **Styling** | Vanilla CSS + CSS Modules | Full control, no dependencies |
+| **Testing** | Vitest + Testing Library | Fast, Vite-native testing |
 | **PWA** | Vite PWA Plugin | Service worker, manifest |
 
 ### Project Structure

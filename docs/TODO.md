@@ -8,10 +8,11 @@
 
 ### Phase 1: Project Setup
 - [x] Initialize Vite + React + TypeScript
-- [x] Configure ESLint + Prettier
+- [x] Configure ESLint v9 + Prettier
 - [x] Set up CSS design tokens
 - [x] Create base component structure
 - [x] Add PWA manifest and icons
+- [x] Add Vitest testing framework
 
 ### Phase 2: Core UI
 - [x] **Header** — Logo, settings button
@@ -20,16 +21,26 @@
 - [x] **Timeline** — Scrubber with trim handles
 - [x] **ActionBar** — Trim, Merge, Split, Export buttons
 - [x] **ExportModal** — Progress indicator, download
+- [x] **TransformPanel** — Rotate, flip, speed controls
 
 ### Phase 3: Video Engine
 - [x] Integrate ffmpeg.wasm
 - [x] Implement file import (drag-drop + picker)
 - [x] Generate video thumbnails
-- [x] Implement trim operation (frame-accurate re-encoding)
+- [x] Implement trim operation
 - [x] Implement merge operation
-- [x] Implement split operation (split at multiple points → separate files)
+- [x] Implement split operation
 - [x] Implement export pipeline
 - [x] Add progress callbacks
+- [x] WebCodecs frame-accurate splitting
+
+### Phase 4: Transform Features
+- [x] Aspect ratio presets (16:9, 9:16, 1:1, 4:5)
+- [x] Visual crop tool with preview
+- [x] Rotate 90° CW/CCW
+- [x] Flip horizontal/vertical
+- [x] Speed control (0.5x - 2x)
+- [x] Live CSS transform preview
 
 ### Phase 5: PWA
 - [x] Service worker registration
@@ -37,87 +48,68 @@
 - [x] Install prompt
 - [x] App icons (multiple sizes)
 
+### Phase 6: Open-Source Infrastructure
+- [x] ESLint v9 flat config
+- [x] Prettier configuration
+- [x] CONTRIBUTING.md
+- [x] CHANGELOG.md
+- [x] CODE_OF_CONDUCT.md
+- [x] GitHub issue/PR templates
+- [x] Unit tests (58 passing)
+
 ---
 
 ## 🔄 In Progress
 
-### Phase 4: Polish
-- [ ] Keyboard shortcuts enhancement
+### Phase 7: Polish
 - [ ] Undo/Redo system
-- [ ] Error handling + user feedback
 - [ ] Loading states + skeletons
 - [ ] Responsive layout (tablet)
 - [ ] Accessibility audit (ARIA)
+- [ ] Keyboard shortcuts documentation
 
 ---
 
-## 🚀 Feature Expansion (Priority Queue)
+## 🚀 Future Features
 
-### 🎬 Transform & Crop (P1)
-- [ ] **Aspect Ratio Presets** — 16:9, 9:16 (vertical), 1:1 (square), 4:5 (Instagram)
-- [ ] **Crop Tool** — Visual drag-to-crop with preview
-- [ ] **Rotate** — 90° CW/CCW, flip horizontal/vertical
-- [ ] **Scale/Zoom** — Pan & zoom within frame
+### Audio (P2)
+- [ ] Volume control per-clip
+- [ ] Mute audio track
+- [ ] Background music overlay
+- [ ] Fade in/out
 
-### 🎨 Visual Effects (P2)
-- [ ] **Speed Control** — 0.5x, 1.5x, 2x playback with audio pitch correction
-- [ ] **Color Filters** — Basic presets (warm, cool, B&W, vintage)
-- [ ] **Brightness/Contrast** — Manual adjustment sliders
-- [ ] **Blur/Pixelate** — Region-based censoring
+### Visual Effects (P2)
+- [ ] Color filters (warm, cool, B&W)
+- [ ] Brightness/contrast sliders
+- [ ] Region blur/pixelate
 
-### � Audio (P2)
-- [ ] **Volume Control** — Per-clip volume adjustment
-- [ ] **Mute Audio** — Strip audio track
-- [ ] **Background Music** — Add audio track overlay
-- [ ] **Fade In/Out** — Audio transitions
+### Transitions & Text (P3)
+- [ ] Transitions between clips
+- [ ] Text overlays
+- [ ] Watermark/logo placement
 
-### ✨ Transitions & Text (P3)
-- [ ] **Transitions** — Fade, dissolve, wipe between clips
-- [ ] **Text Overlays** — Titles, captions with fonts
-- [ ] **Stickers/Emojis** — Overlay graphics
-- [ ] **Watermark** — Add logo/image overlay
-
-### ☁️ Productivity (P3)
-- [ ] **Project Auto-save** — IndexedDB persistence
-- [ ] **Export Presets** — TikTok, Instagram Reel, YouTube Short, Twitter
-- [ ] **Batch Export** — Export all clips individually
-- [ ] **Share to Platforms** — Direct upload integration
+### Productivity (P3)
+- [ ] Project auto-save (IndexedDB)
+- [ ] Export presets (TikTok, Instagram, YouTube)
+- [ ] Batch export
 
 ---
 
-## 🐛 Bugs
+## 🐛 Known Issues
 
-_No known bugs_
+- ESLint control-regex warning in validation.ts (intentional for security)
+- React hooks exhaustive-deps warning in VideoPlayer (intentional)
 
 ---
 
 ## 📝 Technical Notes
 
-### FFmpeg Transform Commands
-
-```bash
-# Aspect ratio change (add letterbox/pillarbox)
--vf "scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2"
-
-# Crop to center
--vf "crop=1080:1080:(in_w-1080)/2:(in_h-1080)/2"
-
-# Speed change (2x) with audio
--filter_complex "[0:v]setpts=0.5*PTS[v];[0:a]atempo=2.0[a]" -map "[v]" -map "[a]"
-
-# Rotate 90° clockwise
--vf "transpose=1"
-
-# Flip horizontal
--vf "hflip"
-```
-
 ### Browser Compatibility
-- **Chrome 89+** — Full support
-- **Firefox 89+** — Full support
+- **Chrome 89+** — Full support (WebCodecs)
+- **Firefox 89+** — FFmpeg fallback
 - **Safari 15+** — Limited SharedArrayBuffer
-- **Edge 89+** — Full support (Chromium)
+- **Edge 89+** — Full support
 
 ---
 
-_Last updated: 2026-01-06_
+_Last updated: 2026-01-12_

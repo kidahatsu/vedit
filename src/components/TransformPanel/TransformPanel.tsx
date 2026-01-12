@@ -12,6 +12,8 @@ import {
     Gauge
 } from 'lucide-react'
 import { useEditorStore, type AspectRatioPreset, type TransformState } from '../../store/editorStore'
+import { useSelectedClip } from '../../store/selectors'
+import { hasTransformsApplied } from '../../utils/videoTransforms'
 import styles from './TransformPanel.module.css'
 
 const ASPECT_RATIOS: { value: AspectRatioPreset; label: string; icon: React.ReactNode; width: number; height: number }[] = [
@@ -31,53 +33,44 @@ const SPEED_PRESETS: { value: TransformState['speed']; label: string }[] = [
 ]
 
 export function TransformPanel() {
-    const { clips, selectedClipId, cropMode, updateTransform, resetTransform, toggleCropMode } = useEditorStore()
-    const selectedClip = clips.find((c) => c.id === selectedClipId)
+    const { cropMode, updateTransform, resetTransform, toggleCropMode } = useEditorStore()
+    const selectedClip = useSelectedClip()
 
     if (!selectedClip) {
         return null
     }
 
-    const { transform } = selectedClip
-    const hasTransforms =
-        transform.aspectRatio !== 'original' ||
-        transform.rotation !== 0 ||
-        transform.flipH ||
-        transform.flipV ||
-        transform.speed !== 1 ||
-        transform.cropWidth !== 1 ||
-        transform.cropHeight !== 1 ||
-        transform.cropX !== 0 ||
-        transform.cropY !== 0
+    const { id: clipId, transform } = selectedClip
+    const hasTransforms = hasTransformsApplied(transform)
 
     const handleAspectRatioChange = (ratio: AspectRatioPreset) => {
-        updateTransform(selectedClipId!, { aspectRatio: ratio })
+        updateTransform(clipId, { aspectRatio: ratio })
     }
 
     const handleSpeedChange = (speed: TransformState['speed']) => {
-        updateTransform(selectedClipId!, { speed })
+        updateTransform(clipId, { speed })
     }
 
     const handleRotateCW = () => {
         const newRotation = ((transform.rotation + 90) % 360) as 0 | 90 | 180 | 270
-        updateTransform(selectedClipId!, { rotation: newRotation })
+        updateTransform(clipId, { rotation: newRotation })
     }
 
     const handleRotateCCW = () => {
         const newRotation = ((transform.rotation - 90 + 360) % 360) as 0 | 90 | 180 | 270
-        updateTransform(selectedClipId!, { rotation: newRotation })
+        updateTransform(clipId, { rotation: newRotation })
     }
 
     const handleFlipH = () => {
-        updateTransform(selectedClipId!, { flipH: !transform.flipH })
+        updateTransform(clipId, { flipH: !transform.flipH })
     }
 
     const handleFlipV = () => {
-        updateTransform(selectedClipId!, { flipV: !transform.flipV })
+        updateTransform(clipId, { flipV: !transform.flipV })
     }
 
     const handleReset = () => {
-        resetTransform(selectedClipId!)
+        resetTransform(clipId)
         if (cropMode) {
             toggleCropMode()
         }

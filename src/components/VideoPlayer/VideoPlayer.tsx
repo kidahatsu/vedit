@@ -1,14 +1,17 @@
 import { useCallback, useEffect, useRef, useState, useMemo } from 'react'
 import { Play, Pause, Volume2, VolumeX, Film } from 'lucide-react'
 import { useEditorStore, ASPECT_RATIO_DIMENSIONS } from '../../store/editorStore'
+import { useSelectedClip } from '../../store/selectors'
 import { formatTime } from '../../lib/utils'
+import { buildVideoTransformStyle, calculateCropBoxStyle, hasCropApplied } from '../../utils/videoTransforms'
 import styles from './VideoPlayer.module.css'
 
 type DragHandle = 'topLeft' | 'topRight' | 'bottomLeft' | 'bottomRight' | 'top' | 'bottom' | 'left' | 'right' | 'move' | null
 
 export function VideoPlayer() {
-    const { clips, selectedClipId, cropMode, updateClipTrim, addSplitPoint, updateTransform, seekPreviewTime, setSeekPreviewTime } = useEditorStore()
-    const selectedClip = clips.find((c) => c.id === selectedClipId)
+    const { cropMode, updateClipTrim, addSplitPoint, updateTransform, seekPreviewTime, setSeekPreviewTime } = useEditorStore()
+    const selectedClip = useSelectedClip()
+    const selectedClipId = selectedClip?.id ?? null
 
     const videoRef = useRef<HTMLVideoElement>(null)
     const playerRef = useRef<HTMLDivElement>(null)
@@ -176,23 +179,10 @@ export function VideoPlayer() {
         return () => window.removeEventListener('keydown', handleKeyDown)
     }, [togglePlay, selectedClip, selectedClipId, currentTime, duration, updateClipTrim, addSplitPoint])
 
-    // Build video transform style
+    // Build video transform style using shared utility
     const videoTransformStyle = useMemo(() => {
         if (!selectedClip) return {}
-        const { rotation, flipH, flipV } = selectedClip.transform
-
-        const transforms: string[] = []
-        if (rotation !== 0) {
-            transforms.push(`rotate(${rotation}deg)`)
-        }
-        if (flipH) {
-            transforms.push('scaleX(-1)')
-        }
-        if (flipV) {
-            transforms.push('scaleY(-1)')
-        }
-
-        return transforms.length > 0 ? { transform: transforms.join(' ') } : {}
+        return buildVideoTransformStyle(selectedClip.transform)
     }, [selectedClip])
 
     // Crop overlay handlers
@@ -292,21 +282,11 @@ export function VideoPlayer() {
 
     const progress = duration > 0 ? (currentTime / duration) * 100 : 0
 
-    // Crop box position/size in percentages
-    const cropBox = selectedClip ? {
-        left: `${selectedClip.transform.cropX * 100}%`,
-        top: `${selectedClip.transform.cropY * 100}%`,
-        width: `${selectedClip.transform.cropWidth * 100}%`,
-        height: `${selectedClip.transform.cropHeight * 100}%`
-    } : null
+    // Crop box position/size using shared utility
+    const cropBox = selectedClip ? calculateCropBoxStyle(selectedClip.transform) : null
 
-    // Check if a non-default crop is applied (not full frame)
-    const isCropped = selectedClip && (
-        selectedClip.transform.cropX !== 0 ||
-        selectedClip.transform.cropY !== 0 ||
-        selectedClip.transform.cropWidth !== 1 ||
-        selectedClip.transform.cropHeight !== 1
-    )
+    // Check if a non-default crop is applied using shared utility
+    const isCropped = selectedClip && hasCropApplied(selectedClip.transform)
 
     // Aspect ratio preview - calculate letterbox/pillarbox effect
     const aspectRatioStyle = useMemo(() => {
