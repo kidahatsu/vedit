@@ -13,6 +13,8 @@
     "@ffmpeg/ffmpeg": "^0.12.15",
     "@ffmpeg/util": "^0.12.2",
     "lucide-react": "^0.468.0",
+    "mp4-muxer": "^5.2.2",
+    "mp4box": "^2.3.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "zustand": "^5.0.3"
