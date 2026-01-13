@@ -28,6 +28,12 @@ graph TB
         WC[webcodecs.ts]
         ERR[errors.ts]
     end
+
+    subgraph Storage["💾 Persistence"]
+        DB[(IndexedDB)]
+        ST[storage.ts]
+        AS[useAutoSave]
+    end
     
     subgraph Utils["🛠️ Utilities"]
         VAL[validation.ts]
@@ -43,7 +49,12 @@ graph TB
     CP <--> ES
     TP <--> ES
     AB --> XS
+    AB --> XS
     EM <--> XS
+
+    ES <--> AS
+    AS --> ST
+    ST <--> DB
     
     FF --> ERR
     WC --> ERR
@@ -296,6 +307,32 @@ function isWebCodecsSupported(): boolean {
     )
 }
 ```
+
+---
+
+
+---
+
+## Persistence Layer
+
+VEdit implements **Project Persistence** to prevent data loss.
+
+### Storage Strategy (`src/lib/storage.ts`)
+
+- **Technology**: IndexedDB (via `idb` library)
+- **Data Model**:
+  - `StoredProject`: Metadata (ID, timestamps, selected clip).
+  - `StoredClip`: Clip data with `File` objects converted to `Blob` for storage.
+  - **Structure**:
+    - `vedit-projects` (DB)
+      - `project` (Store): Single entry for current project.
+      - `clips` (Store): All clips, indexed by project ID.
+
+### Auto-Save Mechanism (`src/hooks/useAutoSave.ts`)
+
+- **Debounce**: Saves occur 2 seconds after the last state change.
+- **Fail-Safe**: `beforeunload` event triggers an immediate (best-effort) save.
+- **State Restoration**: On load, data is retrieved from IndexedDB and rehydrated into the Zustand store.
 
 ---
 

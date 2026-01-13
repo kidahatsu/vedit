@@ -667,3 +667,55 @@ Useful for determining if `transformVideo` should be called instead of simpler `
 - [Architecture](./ARCHITECTURE.md) — System design and patterns
 - [User Guide](./USER_GUIDE.md) — End-user documentation
 - [Design Document](./DESIGN.md) — UI/UX specifications
+
+## Storage (`src/lib/storage.ts`)
+
+Handles persistence of project state to IndexedDB.
+
+### Types
+
+#### `StoredProject`
+Metadata for a saved project.
+```typescript
+interface StoredProject {
+    id: string
+    name: string
+    createdAt: Date
+    updatedAt: Date
+    selectedClipId: string | null
+}
+```
+
+#### `StoredClip`
+Clip data optimized for storage (using Blob instead of File).
+```typescript
+interface StoredClip {
+    id: string
+    projectId: string
+    file: Blob
+    name: string
+    duration: number
+    thumbnailUrl: string | null
+    trimStart: number
+    trimEnd: number
+    splitPoints: number[]
+    transform: TransformState
+    order: number
+}
+```
+
+### Functions
+
+#### `saveProject(clips: Clip[], selectedClipId: string | null): Promise<void>`
+Saves the current project and all its clips to IndexedDB.
+- **clips**: Array of clips to save.
+- **selectedClipId**: ID of the currently selected clip.
+
+#### `loadProject(): Promise<{ clips: Clip[], selectedClipId: string | null } | null>`
+Loads the project from IndexedDB. Returns `null` if no saved project exists.
+
+#### `clearProject(): Promise<void>`
+Deletes all project data from IndexedDB.
+
+#### `isStorageAvailable(): boolean`
+Checks if IndexedDB is supported in the current environment.

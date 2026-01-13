@@ -1,8 +1,14 @@
-import { HelpCircle, Settings, Undo2, Redo2 } from 'lucide-react'
+import { HelpCircle, Settings, Undo2, Redo2, Cloud, CloudOff, Loader } from 'lucide-react'
 import { useEditorStore } from '../../store/editorStore'
+import type { SaveStatus } from '../../hooks/useAutoSave'
 import styles from './Header.module.css'
 
-export function Header() {
+interface HeaderProps {
+    /** Current auto-save status */
+    saveStatus?: SaveStatus
+}
+
+export function Header({ saveStatus = 'idle' }: HeaderProps) {
     const undo = useEditorStore((state) => state.undo)
     const redo = useEditorStore((state) => state.redo)
     const canUndo = useEditorStore((state) => state.canUndo)
@@ -26,6 +32,28 @@ export function Header() {
                     <polygon points="35,25 35,75 75,50" fill="url(#logoGrad)" />
                 </svg>
                 <span className="gradient-text">VEdit</span>
+
+                {/* Save Status Indicator */}
+                <div className={styles.saveStatus}>
+                    {saveStatus === 'saving' && (
+                        <>
+                            <Loader size={14} className={styles.savingIcon} />
+                            <span>Saving...</span>
+                        </>
+                    )}
+                    {saveStatus === 'saved' && (
+                        <>
+                            <Cloud size={14} className={styles.savedIcon} />
+                            <span>Saved</span>
+                        </>
+                    )}
+                    {saveStatus === 'error' && (
+                        <>
+                            <CloudOff size={14} className={styles.errorIcon} />
+                            <span>Error</span>
+                        </>
+                    )}
+                </div>
             </div>
 
             <div className={styles.actions}>
@@ -58,4 +86,3 @@ export function Header() {
         </header>
     )
 }
-

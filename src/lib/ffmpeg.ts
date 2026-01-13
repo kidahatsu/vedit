@@ -17,6 +17,16 @@ export interface TransformOptions {
     speed?: 0.5 | 0.75 | 1 | 1.5 | 2
     sourceWidth?: number
     sourceHeight?: number
+    /** Target output width for resolution scaling (from export preset) */
+    targetWidth?: number
+    /** Target output height for resolution scaling (from export preset) */
+    targetHeight?: number
+
+    // Audio options
+    volume?: number
+    muted?: boolean
+    fadeIn?: number
+    fadeOut?: number
 }
 
 let ffmpeg: FFmpeg | null = null
@@ -266,7 +276,7 @@ async function splitVideoFFmpeg(
 export function buildFilterChain(transform: TransformOptions): string[] {
     const filters: string[] = []
 
-    const { aspectRatio, crop, rotation, flipH, flipV, speed, sourceWidth, sourceHeight } = transform
+    const { aspectRatio, crop, rotation, flipH, flipV, speed, sourceWidth, sourceHeight, targetWidth, targetHeight } = transform
 
     // 1. Speed (video only - audio handled separately)
     if (speed && speed !== 1) {
@@ -312,8 +322,14 @@ export function buildFilterChain(transform: TransformOptions): string[] {
         }
     }
 
-    // 5. Aspect ratio with letterbox/pillarbox padding
-    if (aspectRatio && aspectRatio !== 'original') {
+    // 5. Target resolution scaling (from export preset) OR aspect ratio with letterbox/pillarbox
+    if (targetWidth && targetHeight) {
+        // Scale to specific resolution with letterbox/pillarbox padding
+        filters.push(
+            `scale=${targetWidth}:${targetHeight}:force_original_aspect_ratio=decrease`,
+            `pad=${targetWidth}:${targetHeight}:(ow-iw)/2:(oh-ih)/2:black`
+        )
+    } else if (aspectRatio && aspectRatio !== 'original') {
         const dims = ASPECT_RATIO_DIMENSIONS[aspectRatio]
         filters.push(
             `scale=${dims.width}:${dims.height}:force_original_aspect_ratio=decrease`,
@@ -325,12 +341,44 @@ export function buildFilterChain(transform: TransformOptions): string[] {
 }
 
 /**
- * Build audio filter for speed changes with pitch correction
- * atempo only supports 0.5-2.0
+ * Build audio filter chain for speed, volume, mute, and fades
  */
-export function buildAudioSpeedFilter(speed: number): string | null {
-    if (!speed || speed === 1) return null
-    return `atempo=${speed}`
+export function buildAudioFilterChain(transform: TransformOptions, duration: number): string[] {
+    const filters: string[] = []
+    const { speed, volume, muted, fadeIn, fadeOut } = transform
+
+    // 1. Mute (if muted, we can just use volume=0)
+    if (muted) {
+        filters.push('volume=0')
+        return filters // No need for other filters if muted
+    }
+
+    // 2. Volume (0-100 -> 0-1 multiplier) - 100 is default (1.0)
+    // Allow up to 200% (2.0)
+    if (volume !== undefined && volume !== 100) {
+        const vol = Math.max(0, volume) / 100
+        filters.push(`volume=${vol}`)
+    }
+
+    // 3. Speed (atempo)
+    if (speed && speed !== 1) {
+        filters.push(`atempo=${speed}`)
+    }
+
+    // 4. Fade In
+    if (fadeIn && fadeIn > 0) {
+        filters.push(`afade=t=in:st=0:d=${fadeIn}`)
+    }
+
+    // 5. Fade Out
+    if (fadeOut && fadeOut > 0) {
+        // Start time for fade out = total duration - fade duration
+        // We need to ensure start time is not negative
+        const startTime = Math.max(0, duration - fadeOut)
+        filters.push(`afade=t=out:st=${startTime.toFixed(3)}:d=${fadeOut}`)
+    }
+
+    return filters
 }
 
 /**
@@ -353,6 +401,12 @@ export async function transformVideo(
 
     onProgress?.(30, 'Applying transforms...')
 
+    // Calculate duration for audio fades (adjusting for speed)
+    let duration = trimEnd - trimStart
+    if (transform.speed && transform.speed !== 1) {
+        duration = duration / transform.speed
+    }
+
     // Build the FFmpeg command
     const args = [
         '-i', inputName,
@@ -366,10 +420,10 @@ export async function transformVideo(
         args.push('-vf', filters.join(','))
     }
 
-    // Add audio filter for speed changes (atempo for pitch correction)
-    const audioFilter = buildAudioSpeedFilter(transform.speed || 1)
-    if (audioFilter) {
-        args.push('-af', audioFilter)
+    // Add audio filter chain
+    const audioFilters = buildAudioFilterChain(transform, duration)
+    if (audioFilters.length > 0) {
+        args.push('-af', audioFilters.join(','))
     }
 
     // Output settings

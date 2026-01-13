@@ -33,3 +33,36 @@
     background: var(--color-border);
     margin: 0 var(--space-2);
 }
+
+/* Save Status Indicator */
+.saveStatus {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+    margin-left: var(--space-3);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+}
+
+.savingIcon {
+    animation: spin 1s linear infinite;
+    color: var(--color-accent-primary);
+}
+
+.savedIcon {
+    color: var(--color-accent-success);
+}
+
+.errorIcon {
+    color: var(--color-accent-error);
+}
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}

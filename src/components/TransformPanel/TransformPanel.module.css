@@ -179,7 +179,62 @@
 }
 
 .speedBtn.active {
-    background: var(--color-accent-primary);
-    border-color: var(--color-accent-primary);
     color: var(--color-bg-primary);
+}
+
+/* Audio Controls */
+.rangeWrapper {
+    display: flex;
+    align-items: center;
+    width: 60px;
+    margin: 0 var(--space-1);
+}
+
+.rangeInput {
+    width: 100%;
+    cursor: pointer;
+    accent-color: var(--color-accent-primary);
+}
+
+.fadeInputWrapper {
+    display: flex;
+    align-items: center;
+    background: var(--color-bg-tertiary);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: 0 var(--space-2);
+    height: 36px;
+    width: 64px;
+}
+
+.fadeIcon {
+    color: var(--color-text-muted);
+    margin-right: var(--space-1);
+}
+
+.numberInput {
+    width: 100%;
+    background: transparent;
+    border: none;
+    color: var(--color-text-primary);
+    font-size: var(--font-size-xs);
+    font-family: inherit;
+    text-align: right;
+    -moz-appearance: textfield;
+}
+
+.numberInput::-webkit-inner-spin-button,
+.numberInput::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.numberInput:focus {
+    outline: none;
+}
+
+.unitLabel {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+    margin-left: 2px;
 }

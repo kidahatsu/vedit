@@ -30,6 +30,12 @@ export interface TransformState {
 
     // Playback speed multiplier
     speed: 0.5 | 0.75 | 1 | 1.5 | 2
+
+    // Audio settings
+    volume: number   // 0-100 (100 = original volume)
+    muted: boolean
+    fadeIn: number   // Fade in duration in seconds
+    fadeOut: number  // Fade out duration in seconds
 }
 
 /**
@@ -45,6 +51,10 @@ export const DEFAULT_TRANSFORM: TransformState = {
     flipH: false,
     flipV: false,
     speed: 1,
+    volume: 100,
+    muted: false,
+    fadeIn: 0,
+    fadeOut: 0,
 }
 
 /**

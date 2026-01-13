@@ -45,6 +45,8 @@ Open [http://localhost:5173](http://localhost:5173) and drag a video file to get
 
 ## 🏗️ Architecture
 
+![VEdit Architecture](docs/assets/architecture.png)
+
 ```
 src/
 ├── components/          # React components (CSS Modules)

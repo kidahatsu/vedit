@@ -103,6 +103,10 @@ export function hasTransformsApplied(transform: TransformState): boolean {
         transform.flipH ||
         transform.flipV ||
         transform.speed !== 1 ||
+        transform.volume !== 100 ||
+        transform.muted ||
+        transform.fadeIn !== 0 ||
+        transform.fadeOut !== 0 ||
         hasCropApplied(transform)
     )
 }

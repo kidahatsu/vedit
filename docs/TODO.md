@@ -79,30 +79,15 @@
 - [x] Responsive layout (tablet) — 768px breakpoint, mobile clips strip
 - [x] Accessibility (ARIA) — toolbar, dialog, aria-labels
 
+### Phase 9: Audio & Persistence
+- [x] **Export Presets** — TikTok/IG/YouTube compatible
+- [x] **Project Persistence** — IndexedDB auto-save/restore
+- [x] **Audio Editing** — Volume, mute, fade in/out
+
+
 ---
 
 ## 🚀 Future Features
-
-### Audio Editing — ~5-7 days
-- [ ] Volume control per-clip
-- [ ] Mute audio track
-- [ ] Background music overlay
-- [ ] Fade in/out effects
-- See: [DESIGN.md#audio-editing](./DESIGN.md#audio-editing)
-
-### Project Persistence — ~4-5 days
-- [ ] IndexedDB storage layer
-- [ ] Auto-save with debounce
-- [ ] Project management UI
-- [ ] Import/export project files
-- See: [DESIGN.md#project-persistence](./DESIGN.md#project-persistence)
-
-### Export Presets — ~2-3 days
-- [ ] TikTok, Instagram, YouTube presets
-- [ ] Platform limit validation
-- [ ] Preset selection UI
-- [ ] Custom preset creation
-- See: [DESIGN.md#export-presets](./DESIGN.md#export-presets)
 
 ### Visual Effects — ~5-7 days
 - [ ] Color filters (warm, cool, B&W)
@@ -156,4 +141,3 @@ _No known issues at this time._
 ---
 
 _Last updated: 2026-01-13_
-

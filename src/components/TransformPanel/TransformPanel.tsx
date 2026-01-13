@@ -9,7 +9,11 @@ import {
     Smartphone,
     Monitor,
     RectangleVertical,
-    Gauge
+    Gauge,
+    Volume2,
+    VolumeX,
+    TrendingUp,
+    TrendingDown
 } from 'lucide-react'
 import { useEditorStore, type AspectRatioPreset, type TransformState } from '../../store/editorStore'
 import { useSelectedClip } from '../../store/selectors'
@@ -77,6 +81,22 @@ export function TransformPanel() {
         if (cropMode) {
             toggleCropMode()
         }
+    }
+
+    const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        updateTransform(clipId, { volume: Number(e.target.value) })
+    }
+
+    const handleMuteToggle = () => {
+        updateTransform(clipId, { muted: !transform.muted })
+    }
+
+    const handleFadeInChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        updateTransform(clipId, { fadeIn: Number(e.target.value) })
+    }
+
+    const handleFadeOutChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        updateTransform(clipId, { fadeOut: Number(e.target.value) })
     }
 
     return (
@@ -189,6 +209,63 @@ export function TransformPanel() {
                         {sp.label}
                     </button>
                 ))}
+            </div>
+
+            <div className={styles.divider} />
+
+            {/* Audio Section */}
+            <div className={styles.section}>
+                <span className={styles.sectionLabel}>
+                    Audio
+                </span>
+
+                <button
+                    className={`${styles.transformBtn} ${transform.muted ? styles.active : ''}`}
+                    onClick={handleMuteToggle}
+                    title={transform.muted ? "Unmute" : "Mute"}
+                >
+                    {transform.muted ? <VolumeX size={18} /> : <Volume2 size={18} />}
+                </button>
+
+                <div className={styles.rangeWrapper} title={`Volume: ${transform.volume}%`}>
+                    <input
+                        type="range"
+                        min="0"
+                        max="200"
+                        value={transform.volume}
+                        onChange={handleVolumeChange}
+                        disabled={transform.muted}
+                        className={styles.rangeInput}
+                    />
+                </div>
+
+                <div className={styles.fadeInputWrapper} title="Fade In (seconds)">
+                    <TrendingUp size={14} className={styles.fadeIcon} />
+                    <input
+                        type="number"
+                        min="0"
+                        max="10"
+                        step="0.1"
+                        value={transform.fadeIn}
+                        onChange={handleFadeInChange}
+                        className={styles.numberInput}
+                    />
+                    <span className={styles.unitLabel}>s</span>
+                </div>
+
+                <div className={styles.fadeInputWrapper} title="Fade Out (seconds)">
+                    <TrendingDown size={14} className={styles.fadeIcon} />
+                    <input
+                        type="number"
+                        min="0"
+                        max="10"
+                        step="0.1"
+                        value={transform.fadeOut}
+                        onChange={handleFadeOutChange}
+                        className={styles.numberInput}
+                    />
+                    <span className={styles.unitLabel}>s</span>
+                </div>
             </div>
 
             {/* Reset */}
