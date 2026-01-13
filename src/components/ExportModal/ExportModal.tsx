@@ -33,15 +33,29 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
     const isProcessing = status === 'processing' || status === 'loading-ffmpeg'
 
     return (
-        <div className={styles.overlay} onClick={handleClose}>
-            <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
+        <div
+            className={styles.overlay}
+            onClick={handleClose}
+            role="presentation"
+        >
+            <div
+                className={styles.modal}
+                onClick={(e) => e.stopPropagation()}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="export-modal-title"
+            >
                 <div className={styles.header}>
-                    <h2 className={styles.title}>
+                    <h2 id="export-modal-title" className={styles.title}>
                         {status === 'complete' ? 'Export Complete' :
                             status === 'error' ? 'Export Failed' : 'Exporting...'}
                     </h2>
                     {!isProcessing && (
-                        <button className={styles.closeBtn} onClick={handleClose}>
+                        <button
+                            className={styles.closeBtn}
+                            onClick={handleClose}
+                            aria-label="Close modal"
+                        >
                             <X size={20} />
                         </button>
                     )}

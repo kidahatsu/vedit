@@ -4,7 +4,7 @@
 
 ---
 
-## Current Status: ✅ Open-Source Ready
+## Current Status: ✅ Phase 8 Complete
 
 | Milestone | Status | Progress |
 |-----------|--------|----------|
@@ -15,11 +15,82 @@
 | Transform Features | ✅ Complete | 100% |
 | PWA | ✅ Complete | 100% |
 | Open-Source Infra | ✅ Complete | 100% |
-| Polish | 🔜 Pending | 20% |
+| Documentation | ✅ Complete | 100% |
+| Polish | ✅ Complete | 100% |
 
 ---
 
 ## Development Log
+
+### 2026-01-12 — Phase 8: Polish ✨
+
+**Undo/Redo System:**
+- ✅ `store/types.ts` — Shared type definitions
+- ✅ `store/historyStore.ts` — zundo temporal middleware with 50-state limit
+- ✅ `store/editorStore.ts` — Refactored for undo/redo support
+- ✅ `hooks/useKeyboardShortcuts.ts` — Ctrl+Z/Shift+Z/Y shortcuts
+- ✅ `Header.tsx` — Undo/redo buttons with disabled states
+
+**Loading States:**
+- ✅ `components/Skeleton/` — SkeletonBox, SkeletonText, SkeletonClipCard, SkeletonVideoPlayer
+- ✅ CSS shimmer animation
+
+**Responsive Layout:**
+- ✅ 768px breakpoint for tablet/desktop
+- ✅ Mobile clips strip with horizontal scroll
+
+**Accessibility:**
+- ✅ ARIA labels on Header buttons
+- ✅ role="toolbar" on ActionBar
+- ✅ role="dialog", aria-modal on ExportModal
+
+---
+
+### 2026-01-13 — Undo/Redo Bug Fixes 🔧
+
+**Critical Bug Fixes:**
+- ✅ Blob URL `ERR_FILE_NOT_FOUND` after undo — ref-based URL tracking in `VideoPlayer.tsx`
+- ✅ `Cannot read addClip` after undo — stable action capture at module load in `editorStore.ts`
+- ✅ UI not re-rendering after undo/redo — wrapped temporal functions in arrow functions
+- ✅ State corruption after full undo — defensive null checks in all `historyStore.ts` actions
+
+**ESLint/Code Quality:**
+- ✅ Fixed no-control-regex warning in `validation.ts` (intentional security regex)
+- ✅ Fixed exhaustive-deps warning in `VideoPlayer.tsx` (intentional optimization)
+- ✅ All 58 tests passing
+- ✅ ESLint: 0 errors, 0 warnings
+- ✅ TypeScript: clean
+
+---
+
+### 2026-01-12 — Documentation Expansion 📚
+
+**New Documentation:**
+- ✅ [ARCHITECTURE.md](./ARCHITECTURE.md) — System design with Mermaid diagrams
+  - Component tree and data flow
+  - Zustand store structure
+  - FFmpeg WASM integration patterns
+  - WebCodecs fallback strategy
+  - CSS Module organization
+- ✅ [API.md](./API.md) — Complete function reference
+  - lib/ffmpeg.ts, webcodecs.ts, errors.ts
+  - store/editorStore.ts, selectors.ts
+  - utils/validation.ts, videoTransforms.ts
+- ✅ [USER_GUIDE.md](./USER_GUIDE.md) — End-user documentation
+  - Getting started guide
+  - Feature tutorials
+  - Keyboard shortcuts
+  - FAQ/Troubleshooting
+
+**Updated:**
+- ✅ [DESIGN.md](./DESIGN.md) — Added feature specifications
+  - Undo/redo system (command pattern)
+  - Audio editing (volume, mute, background music)
+  - Project persistence (IndexedDB schema)
+  - Export presets (platform dimensions)
+- ✅ [TODO.md](./TODO.md) — Added implementation estimates
+
+---
 
 ### 2026-01-12 — Open-Source Ready 🚀
 
@@ -82,6 +153,8 @@
 
 | Version | Date | Highlights |
 |---------|------|------------|
+| 0.3.1 | 2026-01-13 | Undo/redo bug fixes, ESLint clean |
+| 0.3.0 | 2026-01-12 | Full documentation suite |
 | 0.2.1 | 2026-01-12 | Open-source infra, tests, refactoring |
 | 0.2.0 | 2026-01-07 | Transform: crop, rotate, flip, speed |
 | 0.1.1 | 2026-01-06 | Split feature |
@@ -89,4 +162,17 @@
 
 ---
 
+## 📚 Documentation Index
+
+| Document | Purpose |
+|----------|---------|
+| [ARCHITECTURE.md](./ARCHITECTURE.md) | System design & diagrams |
+| [API.md](./API.md) | Function reference |
+| [USER_GUIDE.md](./USER_GUIDE.md) | End-user guide |
+| [DESIGN.md](./DESIGN.md) | UI/UX & feature specs |
+| [TODO.md](./TODO.md) | Task tracking |
+
+---
+
 _This document is updated after each development session._
+

@@ -6,10 +6,14 @@ import { Timeline } from './components/Timeline'
 import { ActionBar } from './components/ActionBar'
 import { ExportModal } from './components/ExportModal'
 import { TransformPanel } from './components/TransformPanel'
+import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 import styles from './App.module.css'
 
 function App() {
     const [isExportModalOpen, setIsExportModalOpen] = useState(false)
+
+    // Register global keyboard shortcuts (undo/redo)
+    useKeyboardShortcuts()
 
     return (
         <div className={styles.app}>
@@ -36,4 +40,5 @@ function App() {
 }
 
 export default App
+
 

@@ -7,11 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
-- ESLint v9 configuration
-- Prettier code formatting
-- Contributing guidelines
-- Unit tests with Vitest
+## [0.3.1] - 2026-01-13
+
+### Fixed
+- Blob URL `ERR_FILE_NOT_FOUND` errors after undo operations
+- TypeError `Cannot read addClip` after performing undo
+- UI not re-rendering after undo/redo (wrapped temporal functions in arrow functions)
+- State corruption after undoing to empty state (defensive null checks)
+- ESLint no-control-regex warning in validation.ts
+- React hooks exhaustive-deps warning in VideoPlayer.tsx
+
+### Changed
+- Undo/redo now properly trigger React re-renders
+- All historyStore actions now have defensive null checks for state.clips
 
 ## [0.2.0] - 2026-01-06
 

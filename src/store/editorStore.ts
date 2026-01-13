@@ -1,70 +1,60 @@
-import { create } from 'zustand'
+import { create, useStore } from 'zustand'
+import { useHistoryStore } from './historyStore'
+import {
+    DEFAULT_TRANSFORM,
+    ASPECT_RATIO_DIMENSIONS,
+    type TransformState,
+    type AspectRatioPreset,
+    type Clip
+} from './types'
 
-// Aspect ratio presets with their target dimensions
-export type AspectRatioPreset = '16:9' | '9:16' | '1:1' | '4:5' | 'original'
+// Re-export types and constants from types.ts
+export { DEFAULT_TRANSFORM, ASPECT_RATIO_DIMENSIONS }
+export type { TransformState, AspectRatioPreset, Clip }
 
-export const ASPECT_RATIO_DIMENSIONS: Record<Exclude<AspectRatioPreset, 'original'>, { width: number; height: number }> = {
-    '16:9': { width: 1920, height: 1080 },
-    '9:16': { width: 1080, height: 1920 },
-    '1:1': { width: 1080, height: 1080 },
-    '4:5': { width: 1080, height: 1350 },
-}
-
-// Transform state for each clip
-export interface TransformState {
-    // Aspect ratio preset (original = no change)
-    aspectRatio: AspectRatioPreset
-
-    // Crop region (0-1 normalized values, relative to original video)
-    cropX: number
-    cropY: number
-    cropWidth: number
-    cropHeight: number
-
-    // Rotation: 0, 90, 180, 270 degrees clockwise
-    rotation: 0 | 90 | 180 | 270
-
-    // Flip flags
-    flipH: boolean
-    flipV: boolean
-
-    // Playback speed multiplier
-    speed: 0.5 | 0.75 | 1 | 1.5 | 2
-}
-
-export const DEFAULT_TRANSFORM: TransformState = {
-    aspectRatio: 'original',
-    cropX: 0,
-    cropY: 0,
-    cropWidth: 1,
-    cropHeight: 1,
-    rotation: 0,
-    flipH: false,
-    flipV: false,
-    speed: 1,
-}
-
-export interface Clip {
-    id: string
-    file: File
-    name: string
-    duration: number
-    thumbnailUrl: string | null
-    trimStart: number
-    trimEnd: number
-    splitPoints: number[]  // Timestamps where to split (sorted)
-    transform: TransformState  // Transform settings
-}
-
-interface EditorState {
-    clips: Clip[]
-    selectedClipId: string | null
+/**
+ * Transient state that should NOT be tracked for undo/redo.
+ * These are UI states that don't represent user edits.
+ */
+interface TransientState {
     isLoading: boolean
     splitMode: boolean  // When true, clicking timeline adds split markers
     cropMode: boolean   // When true, shows crop overlay on video
     seekPreviewTime: number | null  // Time to seek video preview to (set by Timeline)
+}
 
-    // Actions
+interface TransientActions {
+    setLoading: (loading: boolean) => void
+    toggleSplitMode: () => void
+    toggleCropMode: () => void
+    setSeekPreviewTime: (time: number | null) => void
+}
+
+type TransientStore = TransientState & TransientActions
+
+/**
+ * Transient store for UI state that doesn't need undo/redo.
+ */
+const useTransientStore = create<TransientStore>((set) => ({
+    isLoading: false,
+    splitMode: false,
+    cropMode: false,
+    seekPreviewTime: null,
+
+    setLoading: (isLoading) => set({ isLoading }),
+    toggleSplitMode: () => set((state) => ({ splitMode: !state.splitMode })),
+    toggleCropMode: () => set((state) => ({ cropMode: !state.cropMode })),
+    setSeekPreviewTime: (time) => set({ seekPreviewTime: time }),
+}))
+
+/**
+ * Combined editor state type for compatibility with existing code.
+ */
+interface EditorState extends TransientState {
+    clips: Clip[]
+    selectedClipId: string | null
+
+    // All actions from both stores
     addClip: (clip: Clip) => void
     removeClip: (id: string) => void
     selectClip: (id: string | null) => void
@@ -81,121 +71,145 @@ interface EditorState {
     updateTransform: (id: string, transform: Partial<TransformState>) => void
     resetTransform: (id: string) => void
     reset: () => void
+
+    // Undo/Redo actions
+    undo: () => void
+    redo: () => void
+    canUndo: boolean
+    canRedo: boolean
 }
 
-export const useEditorStore = create<EditorState>((set) => ({
-    clips: [],
-    selectedClipId: null,
-    isLoading: false,
-    splitMode: false,
-    cropMode: false,
-    seekPreviewTime: null,
+/**
+ * CRITICAL: Capture the initial action functions ONCE when the module loads.
+ * These functions are stable and don't change after undo/redo because they
+ * close over zustand's `set` function. Zundo's undo() only replaces the
+ * state VALUES (clips, selectedClipId), NOT these action function references.
+ * 
+ * We MUST capture these before any undo operation happens.
+ */
+const initialHistoryState = useHistoryStore.getState()
 
-    addClip: (clip) =>
-        set((state) => ({
-            clips: [...state.clips, clip],
-            selectedClipId: clip.id
-        })),
+// These action functions are stable - they close over zustand's `set` function
+// and will work correctly even after undo/redo replaces the state values.
+const stableActions = {
+    addClip: initialHistoryState.addClip,
+    removeClip: initialHistoryState.removeClip,
+    selectClip: initialHistoryState.selectClip,
+    updateClipTrim: initialHistoryState.updateClipTrim,
+    addSplitPoint: initialHistoryState.addSplitPoint,
+    removeSplitPoint: initialHistoryState.removeSplitPoint,
+    updateSplitPoint: initialHistoryState.updateSplitPoint,
+    clearSplitPoints: initialHistoryState.clearSplitPoints,
+    reorderClips: initialHistoryState.reorderClips,
+    updateTransform: initialHistoryState.updateTransform,
+    resetTransform: initialHistoryState.resetTransform,
+    reset: initialHistoryState.reset,
+}
 
-    removeClip: (id) =>
-        set((state) => ({
-            clips: state.clips.filter((c) => c.id !== id),
-            selectedClipId: state.selectedClipId === id ? null : state.selectedClipId
-        })),
+/**
+ * Build the combined state from both stores.
+ */
+function buildCombinedState(): EditorState {
+    // Get state VALUES from history store (these change after undo/redo)
+    const historyState = useHistoryStore.getState()
+    const transientState = useTransientStore.getState()
+    const temporal = useHistoryStore.temporal.getState()
 
-    selectClip: (id) =>
-        set({ selectedClipId: id }),
+    // Safely get state values with defaults (in case state is transitioning)
+    const clips = historyState?.clips ?? []
+    const selectedClipId = historyState?.selectedClipId ?? null
 
-    updateClipTrim: (id, trimStart, trimEnd) =>
-        set((state) => ({
-            clips: state.clips.map((c) =>
-                c.id === id ? { ...c, trimStart, trimEnd } : c
-            )
-        })),
+    return {
+        // Undoable state VALUES
+        clips,
+        selectedClipId,
 
-    addSplitPoint: (id, time) =>
-        set((state) => ({
-            clips: state.clips.map((c) => {
-                if (c.id !== id) return c
-                // Only add if within trim range and not duplicate
-                if (time <= c.trimStart || time >= c.trimEnd) return c
-                if (c.splitPoints.includes(time)) return c
-                return {
-                    ...c,
-                    splitPoints: [...c.splitPoints, time].sort((a, b) => a - b)
-                }
+        // Transient state
+        isLoading: transientState.isLoading,
+        splitMode: transientState.splitMode,
+        cropMode: transientState.cropMode,
+        seekPreviewTime: transientState.seekPreviewTime,
+
+        // Use STABLE action references (captured at module load time)
+        // These don't change after undo/redo
+        addClip: stableActions.addClip,
+        removeClip: stableActions.removeClip,
+        selectClip: stableActions.selectClip,
+        updateClipTrim: stableActions.updateClipTrim,
+        addSplitPoint: stableActions.addSplitPoint,
+        removeSplitPoint: stableActions.removeSplitPoint,
+        updateSplitPoint: stableActions.updateSplitPoint,
+        clearSplitPoints: stableActions.clearSplitPoints,
+        reorderClips: stableActions.reorderClips,
+        updateTransform: stableActions.updateTransform,
+        resetTransform: stableActions.resetTransform,
+
+        // Combined reset that also resets transient state and clears history
+        reset: () => {
+            stableActions.reset()
+            useTransientStore.setState({
+                isLoading: false,
+                splitMode: false,
+                cropMode: false,
+                seekPreviewTime: null,
             })
-        })),
+            // Clear undo history on reset
+            temporal.clear()
+        },
 
-    removeSplitPoint: (id, time) =>
-        set((state) => ({
-            clips: state.clips.map((c) =>
-                c.id === id
-                    ? { ...c, splitPoints: c.splitPoints.filter((t) => t !== time) }
-                    : c
-            )
-        })),
+        // Transient actions (these are always stable)
+        setLoading: transientState.setLoading,
+        toggleSplitMode: transientState.toggleSplitMode,
+        toggleCropMode: transientState.toggleCropMode,
+        setSeekPreviewTime: transientState.setSeekPreviewTime,
 
-    updateSplitPoint: (id, oldTime, newTime) =>
-        set((state) => ({
-            clips: state.clips.map((c) => {
-                if (c.id !== id) return c
-                // Remove old point, add new one if valid
-                const filtered = c.splitPoints.filter((t) => t !== oldTime)
-                // Only add if within trim range and not duplicate
-                if (newTime <= c.trimStart || newTime >= c.trimEnd) return { ...c, splitPoints: filtered }
-                if (filtered.includes(newTime)) return { ...c, splitPoints: filtered }
-                return {
-                    ...c,
-                    splitPoints: [...filtered, newTime].sort((a, b) => a - b)
-                }
-            })
-        })),
+        // Undo/Redo from temporal store
+        // NOTE: Must wrap in functions (not bare references) for React re-renders to work properly
+        undo: () => temporal.undo(),
+        redo: () => temporal.redo(),
+        canUndo: temporal.pastStates.length > 0,
+        canRedo: temporal.futureStates.length > 0,
+    }
+}
 
-    clearSplitPoints: (id) =>
-        set((state) => ({
-            clips: state.clips.map((c) =>
-                c.id === id ? { ...c, splitPoints: [] } : c
-            )
-        })),
+/**
+ * Unified editor store hook that combines history store (undoable) with transient store.
+ * This provides backward compatibility with existing components.
+ */
+export function useEditorStore<T>(selector: (state: EditorState) => T): T {
+    // Subscribe to both stores to get updates (values used for re-render triggers)
+    useHistoryStore()
+    useTransientStore()
 
-    reorderClips: (fromIndex, toIndex) =>
-        set((state) => {
-            const clips = [...state.clips]
-            const [removed] = clips.splice(fromIndex, 1)
-            clips.splice(toIndex, 0, removed)
-            return { clips }
-        }),
+    // CRITICAL: Subscribe to the temporal store using useStore hook.
+    // This triggers re-renders when undo/redo changes the pastStates/futureStates.
+    const _pastLength = useStore(useHistoryStore.temporal, (s) => s.pastStates.length)
+    const _futureLength = useStore(useHistoryStore.temporal, (s) => s.futureStates.length)
 
-    setLoading: (isLoading) =>
-        set({ isLoading }),
+    // Track these values to force React to recognize them as dependencies
+    void _pastLength
+    void _futureLength
 
-    toggleSplitMode: () =>
-        set((state) => ({ splitMode: !state.splitMode })),
+    // Build combined state
+    const combinedState = buildCombinedState()
 
-    toggleCropMode: () =>
-        set((state) => ({ cropMode: !state.cropMode })),
+    return selector(combinedState)
+}
 
-    setSeekPreviewTime: (time) =>
-        set({ seekPreviewTime: time }),
+// Add getState for tests and direct access
+useEditorStore.getState = buildCombinedState
 
-    updateTransform: (id, transform) =>
-        set((state) => ({
-            clips: state.clips.map((c) =>
-                c.id === id
-                    ? { ...c, transform: { ...c.transform, ...transform } }
-                    : c
-            )
-        })),
+// Export the history store for direct access if needed
+export { useHistoryStore }
 
-    resetTransform: (id) =>
-        set((state) => ({
-            clips: state.clips.map((c) =>
-                c.id === id ? { ...c, transform: { ...DEFAULT_TRANSFORM } } : c
-            )
-        })),
-
-    reset: () =>
-        set({ clips: [], selectedClipId: null, isLoading: false, splitMode: false, cropMode: false })
-}))
-
+// Re-export useHistoryActions for keyboard shortcuts
+export function useHistoryActions() {
+    const temporalStore = useHistoryStore.temporal.getState()
+    return {
+        undo: temporalStore.undo,
+        redo: temporalStore.redo,
+        get canUndo() { return useHistoryStore.temporal.getState().pastStates.length > 0 },
+        get canRedo() { return useHistoryStore.temporal.getState().futureStates.length > 0 },
+        clear: temporalStore.clear,
+    }
+}

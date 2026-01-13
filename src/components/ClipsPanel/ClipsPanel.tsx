@@ -7,7 +7,10 @@ import { validateVideoFile } from '../../utils/validation'
 import styles from './ClipsPanel.module.css'
 
 export function ClipsPanel() {
-    const { clips, addClip, removeClip, selectClip } = useEditorStore()
+    const clips = useEditorStore((state) => state.clips)
+    const addClip = useEditorStore((state) => state.addClip)
+    const removeClip = useEditorStore((state) => state.removeClip)
+    const selectClip = useEditorStore((state) => state.selectClip)
     const selectedClip = useSelectedClip()
     const selectedClipId = selectedClip?.id ?? null
     const [isDragOver, setIsDragOver] = useState(false)

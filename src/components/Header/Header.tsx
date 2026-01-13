@@ -1,7 +1,13 @@
-import { HelpCircle, Settings } from 'lucide-react'
+import { HelpCircle, Settings, Undo2, Redo2 } from 'lucide-react'
+import { useEditorStore } from '../../store/editorStore'
 import styles from './Header.module.css'
 
 export function Header() {
+    const undo = useEditorStore((state) => state.undo)
+    const redo = useEditorStore((state) => state.redo)
+    const canUndo = useEditorStore((state) => state.canUndo)
+    const canRedo = useEditorStore((state) => state.canRedo)
+
     return (
         <header className={styles.header}>
             <div className={styles.logo}>
@@ -23,13 +29,33 @@ export function Header() {
             </div>
 
             <div className={styles.actions}>
-                <button className="btn btn-icon" title="Help">
+                <button
+                    className="btn btn-icon"
+                    title="Undo (Ctrl+Z)"
+                    onClick={undo}
+                    disabled={!canUndo}
+                    aria-label="Undo"
+                >
+                    <Undo2 size={18} />
+                </button>
+                <button
+                    className="btn btn-icon"
+                    title="Redo (Ctrl+Shift+Z)"
+                    onClick={redo}
+                    disabled={!canRedo}
+                    aria-label="Redo"
+                >
+                    <Redo2 size={18} />
+                </button>
+                <div className={styles.divider} />
+                <button className="btn btn-icon" title="Help" aria-label="Help">
                     <HelpCircle size={18} />
                 </button>
-                <button className="btn btn-icon" title="Settings">
+                <button className="btn btn-icon" title="Settings" aria-label="Settings">
                     <Settings size={18} />
                 </button>
             </div>
         </header>
     )
 }
+

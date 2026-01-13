@@ -104,6 +104,7 @@ export function sanitizeFilename(filename: string, maxLength: number = 100): str
 
     // Replace dangerous/invalid characters with underscores
     const sanitized = basename
+        // eslint-disable-next-line no-control-regex
         .replace(/[<>:"/\\|?*\x00-\x1f]/g, '_') // Invalid filesystem chars
         .replace(/\.{2,}/g, '_') // Prevent .. traversal
         .replace(/^\.+/, '') // Remove leading dots (hidden files)

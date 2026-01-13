@@ -9,7 +9,12 @@ import styles from './VideoPlayer.module.css'
 type DragHandle = 'topLeft' | 'topRight' | 'bottomLeft' | 'bottomRight' | 'top' | 'bottom' | 'left' | 'right' | 'move' | null
 
 export function VideoPlayer() {
-    const { cropMode, updateClipTrim, addSplitPoint, updateTransform, seekPreviewTime, setSeekPreviewTime } = useEditorStore()
+    const cropMode = useEditorStore((state) => state.cropMode)
+    const updateClipTrim = useEditorStore((state) => state.updateClipTrim)
+    const addSplitPoint = useEditorStore((state) => state.addSplitPoint)
+    const updateTransform = useEditorStore((state) => state.updateTransform)
+    const seekPreviewTime = useEditorStore((state) => state.seekPreviewTime)
+    const setSeekPreviewTime = useEditorStore((state) => state.setSeekPreviewTime)
     const selectedClip = useSelectedClip()
     const selectedClipId = selectedClip?.id ?? null
 
@@ -29,22 +34,54 @@ export function VideoPlayer() {
     const [cropStart, setCropStart] = useState({ x: 0, y: 0, width: 1, height: 1 })
 
     // Create object URL when clip changes
-    // Note: Only depends on selectedClipId to prevent resetting currentTime 
-    // when clip metadata (like splitPoints) is updated
+    // Track URL and clip ID in refs to handle React StrictMode double-invocation
+    const blobUrlRef = useRef<{ url: string; clipId: string } | null>(null)
+
     useEffect(() => {
-        if (selectedClip) {
-            const url = URL.createObjectURL(selectedClip.file)
-            setVideoUrl(url)
-            // Only reset time when switching to a different clip, not when
-            // the same clip's metadata changes (e.g., split point drag)
-            setCurrentTime(selectedClip.trimStart)
-            return () => URL.revokeObjectURL(url)
-        } else {
+        const currentClipId = selectedClip?.id
+        const currentFile = selectedClip?.file
+
+        if (!currentFile || !currentClipId) {
+            // No clip selected, clear state but don't revoke yet
+            // (the URL might still be needed if this is StrictMode unmount/remount)
             setVideoUrl(null)
             setIsPlaying(false)
+            return
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [selectedClipId])
+
+        // Check if we already have a URL for this clip
+        if (blobUrlRef.current?.clipId === currentClipId) {
+            // Same clip, reuse existing URL
+            setVideoUrl(blobUrlRef.current.url)
+            return
+        }
+
+        // Different clip, revoke old URL and create new one
+        if (blobUrlRef.current) {
+            URL.revokeObjectURL(blobUrlRef.current.url)
+        }
+
+        const newUrl = URL.createObjectURL(currentFile)
+        blobUrlRef.current = { url: newUrl, clipId: currentClipId }
+        setVideoUrl(newUrl)
+        setCurrentTime(selectedClip.trimStart)
+
+        // Cleanup on unmount only (not on dependency change)
+        return () => {
+            // Only revoke if this is a true unmount (component removed)
+            // For dependency changes, we handle it at the top of the effect
+        }
+    }, [selectedClip?.id, selectedClip?.file, selectedClip?.trimStart])
+
+    // Cleanup on component unmount
+    useEffect(() => {
+        return () => {
+            if (blobUrlRef.current) {
+                URL.revokeObjectURL(blobUrlRef.current.url)
+                blobUrlRef.current = null
+            }
+        }
+    }, [])
 
     // Sync video element with state
     useEffect(() => {
@@ -70,14 +107,24 @@ export function VideoPlayer() {
 
         const handleEnded = () => setIsPlaying(false)
 
+        // Handle video errors (e.g., revoked blob URLs after undo)
+        const handleError = () => {
+            // Silently handle errors from revoked blob URLs
+            // This can happen when undo removes a clip and the URL is revoked
+            setVideoUrl(null)
+            setIsPlaying(false)
+        }
+
         video.addEventListener('timeupdate', handleTimeUpdate)
         video.addEventListener('loadedmetadata', handleLoadedMetadata)
         video.addEventListener('ended', handleEnded)
+        video.addEventListener('error', handleError)
 
         return () => {
             video.removeEventListener('timeupdate', handleTimeUpdate)
             video.removeEventListener('loadedmetadata', handleLoadedMetadata)
             video.removeEventListener('ended', handleEnded)
+            video.removeEventListener('error', handleError)
         }
     }, [selectedClip])
 
@@ -87,6 +134,7 @@ export function VideoPlayer() {
         if (!video || !selectedClip) return
 
         video.playbackRate = selectedClip.transform.speed
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedClip?.transform.speed])
 
     // Respond to seek preview requests from Timeline

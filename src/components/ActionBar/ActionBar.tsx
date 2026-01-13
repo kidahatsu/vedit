@@ -1,5 +1,5 @@
 import { Scissors, Link, RotateCcw, Download, Split } from 'lucide-react'
-import { useEditorStore } from '../../store/editorStore'
+import { useEditorStore, type Clip } from '../../store/editorStore'
 import { useSelectedClip, useHasClips, useCanMerge, useCanSplit } from '../../store/selectors'
 import { useExportStore } from '../../store/exportStore'
 import { trimVideo, mergeVideos, splitVideo, transformVideo } from '../../lib/ffmpeg'
@@ -13,7 +13,8 @@ interface ActionBarProps {
 }
 
 export function ActionBar({ onOpenExportModal }: ActionBarProps) {
-    const { clips, reset } = useEditorStore()
+    const clips = useEditorStore((state) => state.clips)
+    const reset = useEditorStore((state) => state.reset)
     const { startExport, setProcessing, setComplete, setError } = useExportStore()
 
     const selectedClip = useSelectedClip()
@@ -80,7 +81,7 @@ export function ActionBar({ onOpenExportModal }: ActionBarProps) {
             onOpenExportModal()
 
             const blob = await mergeVideos(
-                clips.map((clip) => ({
+                clips.map((clip: Clip) => ({
                     file: clip.file,
                     trimStart: clip.trimStart,
                     trimEnd: clip.trimEnd
@@ -145,7 +146,7 @@ export function ActionBar({ onOpenExportModal }: ActionBarProps) {
     }
 
     return (
-        <footer className={styles.actionBar}>
+        <footer className={styles.actionBar} role="toolbar" aria-label="Video editing actions">
             <div className={styles.group}>
                 <button
                     className="btn"

@@ -2,7 +2,7 @@
 
 > A lightweight, privacy-first video trimming, splitting, and merging PWA
 
-![UI Mockup](../assets/ui-mockup.png)
+![UI Mockup](./assets/ui-mockup.png)
 
 ## 🎯 Product Vision
 
@@ -266,29 +266,313 @@ ffmpeg.exec([
 
 ---
 
+## 📋 Feature Specifications
+
+### Undo/Redo System
+
+**Status:** 🔜 Planned (Priority: High)
+
+VEdit will implement undo/redo using the **Command Pattern** with state snapshots.
+
+```mermaid
+graph LR
+    subgraph History["History Stack"]
+        S0["State 0 (initial)"]
+        S1["State 1"]
+        S2["State 2"]
+        S3["State 3 (current)"]
+    end
+    
+    S0 --> S1 --> S2 --> S3
+    
+    UNDO["Undo"] -.-> S2
+    REDO["Redo"] -.-> S3
+```
+
+**Architecture:**
+
+| Component | Description |
+|-----------|-------------|
+| `HistoryManager` | Manages undo/redo stacks |
+| `EditorCommand` | Interface for reversible operations |
+| `StateSnapshot` | Serialized editor state |
+
+**Command Pattern Interface:**
+
+```typescript
+interface EditorCommand {
+    execute(): void
+    undo(): void
+    description: string  // For history panel
+}
+
+interface HistoryState {
+    past: StateSnapshot[]
+    future: StateSnapshot[]
+    maxHistorySize: number  // Default: 50
+}
+```
+
+**Tracked Operations:**
+
+| Operation | Undoable | Notes |
+|-----------|----------|-------|
+| Add clip | ✅ | Restores previous clip list |
+| Remove clip | ✅ | Restores clip + selection |
+| Trim change | ✅ | Restores in/out points |
+| Add/move split | ✅ | Restores splitPoints array |
+| Transform change | ✅ | Restores transform state |
+| Reorder clips | ✅ | Restores clip order |
+
+**Memory Strategy:**
+
+- Store minimal diffs, not full state
+- Auto-prune history > 50 items
+- Clear history on project reset
+
+---
+
+### Audio Editing
+
+**Status:** 🔜 Planned (Priority: Medium)
+
+Audio controls will be added to the `TransformPanel`.
+
+**UI Mockup:**
+
+```
+┌────────────────────────────────────┐
+│  🔊 Audio                          │
+├────────────────────────────────────┤
+│  Volume    [────●─────────] 75%   │
+│  [ ] Mute audio                    │
+│                                    │
+│  🎵 Background Music               │
+│  [+ Add Music Track]               │
+│  ───────────────────               │
+│  track.mp3        [🗑️]             │
+│  Volume [────●────] 50%            │
+│  [ ] Loop  [ ] Fade in/out         │
+└────────────────────────────────────┘
+```
+
+**Clip Audio State:**
+
+```typescript
+interface AudioState {
+    volume: number        // 0-100
+    muted: boolean
+    fadeIn: number        // seconds (0 = no fade)
+    fadeOut: number       // seconds (0 = no fade)
+}
+
+interface BackgroundTrack {
+    id: string
+    file: File
+    name: string
+    volume: number        // 0-100
+    startOffset: number   // When to start playing
+    loop: boolean
+    fadeIn: number
+    fadeOut: number
+}
+```
+
+**FFmpeg Implementation:**
+
+| Effect | Filter |
+|--------|--------|
+| Volume | `-af "volume=0.75"` |
+| Mute | `-an` (no audio) |
+| Fade in | `-af "afade=t=in:d=2"` |
+| Fade out | `-af "afade=t=out:st=58:d=2"` |
+| Mix tracks | `-filter_complex "amix=inputs=2"` |
+
+---
+
+### Project Persistence
+
+**Status:** 🔜 Planned (Priority: Medium)
+
+Projects will auto-save to IndexedDB for crash recovery.
+
+**IndexedDB Schema:**
+
+```mermaid
+erDiagram
+    PROJECT ||--o{ CLIP : contains
+    PROJECT {
+        string id PK
+        string name
+        date createdAt
+        date updatedAt
+        json settings
+    }
+    CLIP {
+        string id PK
+        string projectId FK
+        blob file
+        string name
+        number duration
+        blob thumbnail
+        number trimStart
+        number trimEnd
+        json splitPoints
+        json transform
+        number order
+    }
+```
+
+**Storage API:**
+
+```typescript
+interface ProjectStorage {
+    // Auto-save current project
+    saveProject(): Promise<void>
+    
+    // Load most recent project
+    loadLastProject(): Promise<Project | null>
+    
+    // List all saved projects
+    listProjects(): Promise<ProjectSummary[]>
+    
+    // Delete a project
+    deleteProject(id: string): Promise<void>
+    
+    // Export project as file
+    exportProject(id: string): Promise<Blob>
+    
+    // Import project file
+    importProject(file: File): Promise<Project>
+}
+```
+
+**Auto-save Behavior:**
+
+| Trigger | Action |
+|---------|--------|
+| Clip added/removed | Save after 1s debounce |
+| Trim changed | Save after 2s debounce |
+| Transform changed | Save after 2s debounce |
+| Window close | Immediate save attempt |
+
+**Storage Limits:**
+
+| Limit | Value |
+|-------|-------|
+| Max project size | 500 MB |
+| Max projects | 10 |
+| Auto-cleanup | Delete oldest when full |
+
+---
+
+### Export Presets
+
+**Status:** 🔜 Planned (Priority: Medium)
+
+Quick export settings for common platforms.
+
+**Preset Specifications:**
+
+| Preset | Resolution | Aspect | Max Duration | Notes |
+|--------|------------|--------|--------------|-------|
+| **TikTok** | 1080×1920 | 9:16 | 10 min | Vertical, mobile |
+| **Instagram Reels** | 1080×1920 | 9:16 | 90 sec | Vertical, mobile |
+| **Instagram Feed** | 1080×1080 | 1:1 | 60 sec | Square |
+| **YouTube** | 1920×1080 | 16:9 | Unlimited | Landscape |
+| **YouTube Shorts** | 1080×1920 | 9:16 | 60 sec | Vertical |
+| **Twitter/X** | 1280×720 | 16:9 | 2 min 20 sec | Lower bitrate |
+
+**UI Integration:**
+
+```
+┌──────────────────────────────────────────┐
+│  📤 Export                               │
+├──────────────────────────────────────────┤
+│  Quick Presets:                          │
+│  [TikTok] [Reels] [YouTube] [Custom]     │
+│                                          │
+│  Resolution: 1080 × 1920                 │
+│  Format: MP4 (H.264)                     │
+│  Quality: High (CRF 23)                  │
+│                                          │
+│  ⚠️ Video is 2:30, max for Reels is 90s │
+│                                          │
+│        [Cancel]  [Export]                │
+└──────────────────────────────────────────┘
+```
+
+**Preset Data Structure:**
+
+```typescript
+interface ExportPreset {
+    id: string
+    name: string
+    icon: string
+    resolution: { width: number; height: number }
+    aspectRatio: AspectRatioPreset
+    maxDuration: number | null  // null = unlimited
+    maxFileSize: number | null  // bytes, for platform limits
+    crf: number                 // Quality (18-28, lower = better)
+    audiobitrate: number        // kbps
+}
+```
+
+---
+
 ## 🚀 Future Roadmap
 
-### Phase 1: Transform (Next)
-- Aspect ratio presets (16:9, 9:16, 1:1, 4:5)
-- Visual crop tool with preview
-- Rotate 90° CW/CCW, flip H/V
+> Features beyond the current planning horizon
 
-### Phase 2: Audio & Speed
-- Volume control per clip
-- Speed adjustment (0.5x - 2x)
-- Mute audio track
-
-### Phase 3: Effects
+### Phase 3: Visual Effects
 - Color filters (warm, cool, B&W, vintage)
-- Brightness/contrast sliders
-- Region blur/pixelate
+- Brightness/contrast/saturation sliders
+- Region blur/pixelate for privacy
 
-### Phase 4: Overlays
-- Text overlays with fonts
-- Transitions between clips
+### Phase 4: Overlays & Transitions
+- Text overlays with custom fonts
+- Transitions between clips (fade, wipe, slide)
 - Watermark/logo placement
+- Sticker/emoji support
 
-### Phase 5: Productivity
-- Project auto-save (IndexedDB)
-- Export presets (TikTok, Instagram, YouTube)
+### Phase 5: Cloud & Collaboration
 - Cloud backup (optional Firebase)
+- Share projects via link
+- Collaborative editing
+
+---
+
+## 📐 Diagram Placeholders
+
+> Diagrams to be added with visual assets
+
+### UI Component Diagram
+
+```
+[ Placeholder: Component tree visualization ]
+See docs/ARCHITECTURE.md for current Mermaid diagram
+```
+
+### State Flow Diagram
+
+```
+[ Placeholder: State machine visualization ]
+See docs/ARCHITECTURE.md for data flow diagram
+```
+
+### Export Pipeline Diagram
+
+```
+[ Placeholder: Visual representation of FFmpeg/WebCodecs pipeline ]
+See docs/ARCHITECTURE.md for processing architecture
+```
+
+---
+
+## 📚 See Also
+
+- [Architecture](./ARCHITECTURE.md) — Technical deep-dive into system design
+- [API Reference](./API.md) — Complete function documentation
+- [User Guide](./USER_GUIDE.md) — End-user documentation
+- [Progress](./PROGRESS.md) — Development changelog
+- [TODO](./TODO.md) — Development task tracking

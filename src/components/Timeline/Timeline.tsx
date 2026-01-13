@@ -8,11 +8,16 @@ import styles from './Timeline.module.css'
 const SEEK_PREVIEW_THROTTLE_MS = 100
 
 export function Timeline() {
-    const {
-        clips, selectedClipId, selectClip, updateClipTrim,
-        removeSplitPoint, addSplitPoint, updateSplitPoint, splitMode, toggleSplitMode,
-        setSeekPreviewTime
-    } = useEditorStore()
+    const clips = useEditorStore((state) => state.clips)
+    const selectedClipId = useEditorStore((state) => state.selectedClipId)
+    const selectClip = useEditorStore((state) => state.selectClip)
+    const updateClipTrim = useEditorStore((state) => state.updateClipTrim)
+    const removeSplitPoint = useEditorStore((state) => state.removeSplitPoint)
+    const addSplitPoint = useEditorStore((state) => state.addSplitPoint)
+    const updateSplitPoint = useEditorStore((state) => state.updateSplitPoint)
+    const splitMode = useEditorStore((state) => state.splitMode)
+    const toggleSplitMode = useEditorStore((state) => state.toggleSplitMode)
+    const setSeekPreviewTime = useEditorStore((state) => state.setSeekPreviewTime)
     const selectedClip = useSelectedClip()
 
     const [hoverTime, setHoverTime] = useState<number | null>(null)

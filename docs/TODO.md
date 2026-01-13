@@ -57,59 +57,103 @@
 - [x] GitHub issue/PR templates
 - [x] Unit tests (58 passing)
 
+### Phase 7: Documentation
+- [x] ARCHITECTURE.md — System design, diagrams
+- [x] API.md — Function reference
+- [x] USER_GUIDE.md — End-user documentation
+- [x] DESIGN.md — Feature specifications
+
 ---
 
-## 🔄 In Progress
+## ✅ Recently Completed
 
-### Phase 7: Polish
-- [ ] Undo/Redo system
-- [ ] Loading states + skeletons
-- [ ] Responsive layout (tablet)
-- [ ] Accessibility audit (ARIA)
-- [ ] Keyboard shortcuts documentation
+### Phase 8: Polish
+- [x] **Undo/Redo system** — zundo temporal middleware
+  - [x] HistoryStore with 50-state limit
+  - [x] Keyboard shortcuts (Ctrl+Z, Ctrl+Shift+Z, Ctrl+Y)
+  - [x] Undo/redo buttons in Header
+  - [x] Bug: Blob URL errors after undo → ref-based tracking
+  - [x] Bug: State corruption after full undo → defensive null checks
+  - [x] Bug: UI not re-rendering after undo/redo → wrapped in arrow functions
+- [x] Loading states + skeletons — Skeleton components with shimmer
+- [x] Responsive layout (tablet) — 768px breakpoint, mobile clips strip
+- [x] Accessibility (ARIA) — toolbar, dialog, aria-labels
 
 ---
 
 ## 🚀 Future Features
 
-### Audio (P2)
+### Audio Editing — ~5-7 days
 - [ ] Volume control per-clip
 - [ ] Mute audio track
 - [ ] Background music overlay
-- [ ] Fade in/out
+- [ ] Fade in/out effects
+- See: [DESIGN.md#audio-editing](./DESIGN.md#audio-editing)
 
-### Visual Effects (P2)
+### Project Persistence — ~4-5 days
+- [ ] IndexedDB storage layer
+- [ ] Auto-save with debounce
+- [ ] Project management UI
+- [ ] Import/export project files
+- See: [DESIGN.md#project-persistence](./DESIGN.md#project-persistence)
+
+### Export Presets — ~2-3 days
+- [ ] TikTok, Instagram, YouTube presets
+- [ ] Platform limit validation
+- [ ] Preset selection UI
+- [ ] Custom preset creation
+- See: [DESIGN.md#export-presets](./DESIGN.md#export-presets)
+
+### Visual Effects — ~5-7 days
 - [ ] Color filters (warm, cool, B&W)
 - [ ] Brightness/contrast sliders
 - [ ] Region blur/pixelate
 
-### Transitions & Text (P3)
+### Transitions & Overlays — ~7-10 days
 - [ ] Transitions between clips
 - [ ] Text overlays
 - [ ] Watermark/logo placement
-
-### Productivity (P3)
-- [ ] Project auto-save (IndexedDB)
-- [ ] Export presets (TikTok, Instagram, YouTube)
-- [ ] Batch export
 
 ---
 
 ## 🐛 Known Issues
 
-- ESLint control-regex warning in validation.ts (intentional for security)
-- React hooks exhaustive-deps warning in VideoPlayer (intentional)
+_No known issues at this time._
 
 ---
 
 ## 📝 Technical Notes
 
 ### Browser Compatibility
-- **Chrome 89+** — Full support (WebCodecs)
-- **Firefox 89+** — FFmpeg fallback
-- **Safari 15+** — Limited SharedArrayBuffer
-- **Edge 89+** — Full support
+
+| Browser | Split | Notes |
+|---------|-------|-------|
+| Chrome 89+ | ✅ WebCodecs | Full support |
+| Firefox 89+ | ⚠️ FFmpeg | Fallback mode |
+| Safari 15+ | ⚠️ FFmpeg | Limited SharedArrayBuffer |
+| Edge 89+ | ✅ WebCodecs | Full support |
+
+### Estimation Legend
+
+| Symbol | Meaning |
+|--------|---------|
+| ⭐ | High priority |
+| ~X days | Rough estimate |
+| P1/P2/P3 | Priority tier |
 
 ---
 
-_Last updated: 2026-01-12_
+## 📚 Documentation
+
+| Document | Description |
+|----------|-------------|
+| [ARCHITECTURE.md](./ARCHITECTURE.md) | System design, diagrams |
+| [API.md](./API.md) | Function reference |
+| [USER_GUIDE.md](./USER_GUIDE.md) | End-user docs |
+| [DESIGN.md](./DESIGN.md) | UI/UX & feature specs |
+| [PROGRESS.md](./PROGRESS.md) | Development log |
+
+---
+
+_Last updated: 2026-01-13_
+

@@ -33,7 +33,10 @@ const SPEED_PRESETS: { value: TransformState['speed']; label: string }[] = [
 ]
 
 export function TransformPanel() {
-    const { cropMode, updateTransform, resetTransform, toggleCropMode } = useEditorStore()
+    const cropMode = useEditorStore((state) => state.cropMode)
+    const updateTransform = useEditorStore((state) => state.updateTransform)
+    const resetTransform = useEditorStore((state) => state.resetTransform)
+    const toggleCropMode = useEditorStore((state) => state.toggleCropMode)
     const selectedClip = useSelectedClip()
 
     if (!selectedClip) {
