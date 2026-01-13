@@ -70,6 +70,9 @@ interface EditorState extends TransientState {
     setSeekPreviewTime: (time: number | null) => void
     updateTransform: (id: string, transform: Partial<TransformState>) => void
     resetTransform: (id: string) => void
+    revertClip: (id: string) => void
+    duplicateClip: (id: string) => void
+    revertAllClips: () => void
     reset: () => void
 
     // Undo/Redo actions
@@ -103,6 +106,9 @@ const stableActions = {
     reorderClips: initialHistoryState.reorderClips,
     updateTransform: initialHistoryState.updateTransform,
     resetTransform: initialHistoryState.resetTransform,
+    revertClip: initialHistoryState.revertClip,
+    duplicateClip: initialHistoryState.duplicateClip,
+    revertAllClips: initialHistoryState.revertAllClips,
     reset: initialHistoryState.reset,
 }
 
@@ -143,6 +149,9 @@ function buildCombinedState(): EditorState {
         reorderClips: stableActions.reorderClips,
         updateTransform: stableActions.updateTransform,
         resetTransform: stableActions.resetTransform,
+        revertClip: stableActions.revertClip,
+        duplicateClip: stableActions.duplicateClip,
+        revertAllClips: stableActions.revertAllClips,
 
         // Combined reset that also resets transient state and clears history
         reset: () => {

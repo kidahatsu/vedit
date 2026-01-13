@@ -32,7 +32,8 @@ export interface StoredClip {
     file: Blob
     name: string
     duration: number
-    thumbnailUrl: string | null
+    thumbnailUrl: string | null // Kept for legacy/structure, but usually null or rebuild on load
+    thumbnailBlob?: Blob // New field for persisting the thumbnail
     trimStart: number
     trimEnd: number
     splitPoints: number[]
@@ -85,15 +86,28 @@ async function getDB(): Promise<IDBPDatabase<VEditDB>> {
 
 /**
  * Convert a Clip to StoredClip (File → Blob).
+ * Now async to fetch thumbnail blob from URL.
  */
-function clipToStoredClip(clip: Clip, projectId: string, order: number): StoredClip {
+async function clipToStoredClip(clip: Clip, projectId: string, order: number): Promise<StoredClip> {
+    let thumbnailBlob: Blob | undefined
+
+    if (clip.thumbnailUrl && clip.thumbnailUrl.startsWith('blob:')) {
+        try {
+            const response = await fetch(clip.thumbnailUrl)
+            thumbnailBlob = await response.blob()
+        } catch (e) {
+            console.warn('[Storage] Failed to fetch thumbnail blob for persistence:', e)
+        }
+    }
+
     return {
         id: clip.id,
         projectId,
         file: clip.file, // File extends Blob, so this works
         name: clip.name,
         duration: clip.duration,
-        thumbnailUrl: clip.thumbnailUrl,
+        thumbnailUrl: null, // Don't store the blob URL string, it's useless after reload
+        thumbnailBlob,
         trimStart: clip.trimStart,
         trimEnd: clip.trimEnd,
         splitPoints: [...clip.splitPoints],
@@ -109,12 +123,25 @@ function storedClipToClip(stored: StoredClip): Clip {
     // Reconstruct File from Blob
     const file = new File([stored.file], stored.name, { type: stored.file.type })
 
+    // Recreate thumbnail URL from blob if exists
+    let thumbnailUrl = stored.thumbnailUrl
+
+    // If we have a stored blob, create a new valid URL
+    if (stored.thumbnailBlob) {
+        thumbnailUrl = URL.createObjectURL(stored.thumbnailBlob)
+    }
+    // If no blob but we have a blob URL, it's dead (from legacy persistence), so kill it to avoid 404s
+    else if (thumbnailUrl && thumbnailUrl.startsWith('blob:')) {
+        console.warn('[Storage] Found dead blob URL without backing blob, invalidating:', thumbnailUrl)
+        thumbnailUrl = null
+    }
+
     return {
         id: stored.id,
         file,
         name: stored.name,
         duration: stored.duration,
-        thumbnailUrl: stored.thumbnailUrl,
+        thumbnailUrl,
         trimStart: stored.trimStart,
         trimEnd: stored.trimEnd,
         splitPoints: [...stored.splitPoints],
@@ -157,7 +184,7 @@ export async function saveProject(
 
         // Save new clips
         for (let i = 0; i < clips.length; i++) {
-            const storedClip = clipToStoredClip(clips[i], DEFAULT_PROJECT_ID, i)
+            const storedClip = await clipToStoredClip(clips[i], DEFAULT_PROJECT_ID, i)
             await clipsStore.put(storedClip)
         }
 

@@ -1,8 +1,9 @@
-import { Scissors, Link, RotateCcw, Download, Split } from 'lucide-react'
+import { Scissors, Link, RotateCcw, Download, Split, Rewind } from 'lucide-react'
 import { useEditorStore, type Clip } from '../../store/editorStore'
-import { useSelectedClip, useHasClips, useCanMerge, useCanSplit } from '../../store/selectors'
+import { useSelectedClip, useHasClips, useCanMerge, useCanSplit, useSelectedClipHasModifications } from '../../store/selectors'
 import { useExportStore } from '../../store/exportStore'
-import { trimVideo, mergeVideos, splitVideo, transformVideo } from '../../lib/ffmpeg'
+import { trimVideo, mergeVideos, splitVideo, transformVideo, reverseVideo } from '../../lib/ffmpeg'
+import { createClipFromFile } from '../../utils/clipCreation'
 import { wrapError } from '../../lib/errors'
 import { hasTransformsApplied } from '../../utils/videoTransforms'
 import { sanitizeFilename } from '../../utils/validation'
@@ -17,12 +18,17 @@ interface ActionBarProps {
 export function ActionBar({ onOpenExportModal }: ActionBarProps) {
     const clips = useEditorStore((state) => state.clips)
     const reset = useEditorStore((state) => state.reset)
+    const revertClip = useEditorStore((state) => state.revertClip)
+    const addClip = useEditorStore((state) => state.addClip)
+    const selectClip = useEditorStore((state) => state.selectClip)
+    const setLoading = useEditorStore((state) => state.setLoading)
     const { startExport, setProcessing, setComplete, setError } = useExportStore()
 
     const selectedClip = useSelectedClip()
     const hasClips = useHasClips()
     const canMerge = useCanMerge()
     const canSplit = useCanSplit()
+    const selectedClipHasModifications = useSelectedClipHasModifications()
 
     const handleTrim = () => {
         if (!selectedClip) return
@@ -159,6 +165,39 @@ export function ActionBar({ onOpenExportModal }: ActionBarProps) {
         }
     }
 
+    const handleReverse = async () => {
+        if (!selectedClip) return
+
+        const duration = selectedClip.trimEnd - selectedClip.trimStart
+        if (duration > 10) {
+            if (!confirm(`This clip is ${Math.round(duration)}s long. Reversing long clips (>10s) may consume significant memory and crash the application. Do you want to proceed?`)) {
+                return
+            }
+        }
+
+        setLoading(true)
+        try {
+            const reversedBlob = await reverseVideo(selectedClip.file, selectedClip.trimStart, selectedClip.trimEnd)
+            // Create new file with meaningful name
+            const nameParts = selectedClip.name.split('.')
+            const ext = nameParts.pop()
+            const baseName = nameParts.join('.')
+            const newName = `${baseName} (Reversed).${ext || 'mp4'}`
+
+            const newFile = new File([reversedBlob], newName, { type: selectedClip.file.type })
+            const clip = await createClipFromFile(newFile)
+            if (clip) {
+                addClip(clip)
+                selectClip(clip.id)
+            }
+        } catch (error) {
+            console.error('[ActionBar] Failed to reverse clip:', error)
+            alert('Failed to reverse clip. The browser might have run out of memory. Try using a shorter clip or lower resolution.')
+        } finally {
+            setLoading(false)
+        }
+    }
+
     return (
         <footer className={styles.actionBar} role="toolbar" aria-label="Video editing actions">
             <div className={styles.group}>
@@ -169,27 +208,47 @@ export function ActionBar({ onOpenExportModal }: ActionBarProps) {
                     title="Trim selected clip"
                 >
                     <Scissors size={16} />
-                    Trim
+                    Export Trim
                 </button>
 
                 <button
                     className={`btn ${canSplit ? 'btn-warning' : ''}`}
                     onClick={handleSplit}
                     disabled={!canSplit}
-                    title={canSplit ? `Split into ${selectedClip!.splitPoints.length + 1} parts` : 'Add split points first'}
+                    title={canSplit ? `Export ${selectedClip!.splitPoints.length + 1} segments` : 'Add split points in timeline first'}
                 >
                     <Split size={16} />
-                    {canSplit ? `✂️ Split → ${selectedClip!.splitPoints.length + 1} parts` : 'Split (0)'}
+                    {canSplit ? `Export ${selectedClip!.splitPoints.length + 1} Segments` : 'Export Split'}
                 </button>
 
                 <button
                     className="btn"
                     onClick={handleMerge}
                     disabled={!canMerge}
-                    title="Merge all clips"
+                    title="Merge and export all clips"
                 >
                     <Link size={16} />
-                    Merge All
+                    Export Merge
+                </button>
+
+                <button
+                    className="btn"
+                    onClick={() => selectedClip && revertClip(selectedClip.id)}
+                    disabled={!selectedClip || !selectedClipHasModifications}
+                    title="Revert selected clip to original"
+                >
+                    <RotateCcw size={16} />
+                    Revert
+                </button>
+
+                <button
+                    className="btn"
+                    onClick={handleReverse}
+                    disabled={!selectedClip}
+                    title="Create a reversed copy of the selected clip"
+                >
+                    <Rewind size={16} />
+                    Reverse
                 </button>
 
                 <div className={styles.divider} />
@@ -198,7 +257,7 @@ export function ActionBar({ onOpenExportModal }: ActionBarProps) {
                     className="btn"
                     onClick={reset}
                     disabled={!hasClips}
-                    title="Reset all"
+                    title="Reset project (clear all)"
                 >
                     <RotateCcw size={16} />
                     Reset

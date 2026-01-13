@@ -1,100 +1,95 @@
 import { useCallback, useRef, useState } from 'react'
-import { Film, Plus, X, Upload } from 'lucide-react'
-import { useEditorStore, type Clip, DEFAULT_TRANSFORM } from '../../store/editorStore'
+import { Film, Plus, X, Upload, MoreVertical } from 'lucide-react'
+import { useEditorStore } from '../../store/editorStore'
 import { useSelectedClip } from '../../store/selectors'
-import { formatTime, generateId } from '../../lib/utils'
-import { validateVideoFile } from '../../utils/validation'
+import { formatTime } from '../../lib/utils'
+import { hasTransformsApplied } from '../../utils/videoTransforms'
+import { ClipActionsMenu } from './ClipActionsMenu'
 import styles from './ClipsPanel.module.css'
+import { reverseVideo } from '../../lib/ffmpeg'
+import { createClipFromFile } from '../../utils/clipCreation'
 
 export function ClipsPanel() {
     const clips = useEditorStore((state) => state.clips)
     const addClip = useEditorStore((state) => state.addClip)
     const removeClip = useEditorStore((state) => state.removeClip)
+    const revertClip = useEditorStore((state) => state.revertClip)
+    const duplicateClip = useEditorStore((state) => state.duplicateClip)
     const selectClip = useEditorStore((state) => state.selectClip)
+    const setLoading = useEditorStore((state) => state.setLoading)
     const selectedClip = useSelectedClip()
     const selectedClipId = selectedClip?.id ?? null
     const [isDragOver, setIsDragOver] = useState(false)
+    const [activeMenu, setActiveMenu] = useState<{ id: string; x: number; y: number } | null>(null)
     const fileInputRef = useRef<HTMLInputElement>(null)
 
-    const handleFiles = useCallback(async (files: FileList) => {
-        for (const file of Array.from(files)) {
-            // Validate file before processing
-            const validation = validateVideoFile(file)
-            if (!validation.valid) {
-                console.warn(`[ClipsPanel] Skipping invalid file: ${validation.error}`)
-                continue
-            }
-
-            // Create object URL - will be revoked after metadata extraction
-            const objectUrl = URL.createObjectURL(file)
-
-            const clip: Clip = {
-                id: generateId(),
-                file,
-                name: file.name,
-                duration: 0,
-                thumbnailUrl: null,
-                trimStart: 0,
-                trimEnd: 0,
-                splitPoints: [],
-                transform: { ...DEFAULT_TRANSFORM }
-            }
-
-            // Get video duration and thumbnail
-            const video = document.createElement('video')
-            video.preload = 'metadata'
-            video.src = objectUrl
-
-            try {
-                await new Promise<void>((resolve, reject) => {
-                    const cleanup = () => {
-                        URL.revokeObjectURL(objectUrl)
-                    }
-
-                    const timeoutId = setTimeout(() => {
-                        cleanup()
-                        reject(new Error('Video metadata loading timeout'))
-                    }, 10000) // 10s timeout
-
-                    video.onerror = () => {
-                        clearTimeout(timeoutId)
-                        cleanup()
-                        reject(new Error('Failed to load video metadata'))
-                    }
-
-                    video.onloadedmetadata = () => {
-                        clip.duration = video.duration
-                        clip.trimEnd = video.duration
-                        // Generate thumbnail from middle of video
-                        video.currentTime = Math.min(1, video.duration / 2)
-                    }
-
-                    video.onseeked = () => {
-                        clearTimeout(timeoutId)
-                        try {
-                            const canvas = document.createElement('canvas')
-                            canvas.width = 160
-                            canvas.height = 90
-                            const ctx = canvas.getContext('2d')
-                            if (ctx) {
-                                ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
-                                clip.thumbnailUrl = canvas.toDataURL('image/jpeg', 0.7)
-                            }
-                        } catch (e) {
-                            console.warn('[ClipsPanel] Failed to generate thumbnail:', e)
-                        }
-                        cleanup()
-                        resolve()
-                    }
-                })
-
-                addClip(clip)
-            } catch (err) {
-                console.error('[ClipsPanel] Error processing video file:', err)
-                // URL already cleaned up in error handler
-            }
+    const processFile = useCallback(async (file: File) => {
+        const clip = await createClipFromFile(file)
+        if (clip) {
+            addClip(clip)
         }
     }, [addClip])
+
+    const handleFiles = useCallback(async (files: FileList) => {
+        setLoading(true)
+        try {
+            for (const file of Array.from(files)) {
+                await processFile(file)
+            }
+        } finally {
+            setLoading(false)
+        }
+    }, [processFile, setLoading])
+
+    const handleReverse = useCallback(async (id: string) => {
+        const clip = clips.find(c => c.id === id)
+        if (!clip) return
+
+        const duration = clip.trimEnd - clip.trimStart
+        if (duration > 10) {
+            if (!confirm(`This clip is ${Math.round(duration)}s long. Reversing long clips (>10s) may consume significant memory and crash the application. Do you want to proceed?`)) {
+                return
+            }
+        }
+
+        setLoading(true)
+        try {
+            const reversedBlob = await reverseVideo(clip.file, clip.trimStart, clip.trimEnd)
+            // Create new file with meaningful name
+            const nameParts = clip.name.split('.')
+            const ext = nameParts.pop()
+            const baseName = nameParts.join('.')
+            const newName = `${baseName} (Reversed).${ext || 'mp4'}`
+
+            const newFile = new File([reversedBlob], newName, { type: clip.file.type })
+            await processFile(newFile)
+            // Note: processFile uses addClip which adds to end.
+            // If we want to selecting it or something, we'd need clip ID.
+            // createClipFromFile generates ID but returns it.
+            // But processFile consumes it.
+            // It's fine for now.
+        } catch (error) {
+            console.error('[ClipsPanel] Failed to reverse clip:', error)
+            alert('Failed to reverse clip. The browser might have run out of memory. Try using a shorter clip or lower resolution.')
+        } finally {
+            setLoading(false)
+        }
+    }, [clips, setLoading, processFile])
+
+    const handleDownload = useCallback((id: string) => {
+        const clip = clips.find(c => c.id === id)
+        if (!clip) return
+
+        // Create temporary anchor to trigger download
+        const url = URL.createObjectURL(clip.file)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = clip.name || `clip-${id}.mp4`
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        URL.revokeObjectURL(url)
+    }, [clips])
 
     const handleDrop = useCallback((e: React.DragEvent) => {
         e.preventDefault()
@@ -123,6 +118,25 @@ export function ClipsPanel() {
             e.target.value = ''
         }
     }, [handleFiles])
+
+    const handleContextMenu = useCallback((e: React.MouseEvent, clipId: string) => {
+        e.preventDefault()
+        setActiveMenu({ id: clipId, x: e.clientX, y: e.clientY })
+    }, [])
+
+    const handleMenuOpen = useCallback((e: React.MouseEvent, clipId: string) => {
+        e.stopPropagation()
+        const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+        setActiveMenu({ id: clipId, x: rect.left, y: rect.bottom })
+    }, [])
+
+    const activeClip = activeMenu ? clips.find(c => c.id === activeMenu.id) : null
+    const activeClipHasMods = activeClip ? (
+        activeClip.trimStart > 0 ||
+        activeClip.trimEnd < activeClip.duration ||
+        activeClip.splitPoints.length > 0 ||
+        hasTransformsApplied(activeClip.transform)
+    ) : false
 
     return (
         <aside className={styles.panel}>
@@ -164,6 +178,7 @@ export function ClipsPanel() {
                                 key={clip.id}
                                 className={`${styles.clip} ${selectedClipId === clip.id ? styles.clipSelected : ''}`}
                                 onClick={() => selectClip(clip.id)}
+                                onContextMenu={(e) => handleContextMenu(e, clip.id)}
                             >
                                 {clip.thumbnailUrl ? (
                                     <img
@@ -183,11 +198,19 @@ export function ClipsPanel() {
                                     </div>
                                 </div>
                                 <button
+                                    className={styles.menuBtn}
+                                    onClick={(e) => handleMenuOpen(e, clip.id)}
+                                    title="Actions"
+                                >
+                                    <MoreVertical size={14} />
+                                </button>
+                                <button
                                     className={styles.removeBtn}
                                     onClick={(e) => {
                                         e.stopPropagation()
                                         removeClip(clip.id)
                                     }}
+                                    title="Remove"
                                 >
                                     <X size={14} />
                                 </button>
@@ -198,6 +221,20 @@ export function ClipsPanel() {
                         <Plus size={16} />
                         Add Clip
                     </button>
+                    {activeMenu && activeClip && (
+                        <ClipActionsMenu
+                            clipId={activeMenu.id}
+                            clipName={activeClip.name}
+                            position={{ x: activeMenu.x, y: activeMenu.y }}
+                            hasModifications={activeClipHasMods}
+                            onRevert={() => revertClip(activeMenu.id)}
+                            onReverse={() => handleReverse(activeMenu.id)}
+                            onDuplicate={() => duplicateClip(activeMenu.id)}
+                            onDownload={() => handleDownload(activeMenu.id)}
+                            onDelete={() => removeClip(activeMenu.id)}
+                            onClose={() => setActiveMenu(null)}
+                        />
+                    )}
                 </>
             )}
         </aside>

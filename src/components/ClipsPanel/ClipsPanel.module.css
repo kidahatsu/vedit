@@ -107,6 +107,26 @@
     background: rgba(255, 68, 102, 0.1);
 }
 
+.menuBtn {
+    padding: var(--space-1);
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-sm);
+    color: var(--color-text-muted);
+    cursor: pointer;
+    opacity: 0;
+    transition: all var(--transition-fast);
+}
+
+.clip:hover .menuBtn {
+    opacity: 1;
+}
+
+.menuBtn:hover {
+    color: var(--color-text-primary);
+    background: var(--color-bg-tertiary);
+}
+
 .addButton {
     display: flex;
     align-items: center;

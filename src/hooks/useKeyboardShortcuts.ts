@@ -17,8 +17,8 @@ import { useEditorStore } from '../store/editorStore'
  */
 export function useKeyboardShortcuts() {
     const handleKeyDown = useCallback((event: KeyboardEvent) => {
-        // Get undo/redo from store
-        const { undo, redo, canUndo, canRedo } = useEditorStore.getState()
+        // Get actions from store
+        const { undo, redo, canUndo, canRedo, selectedClipId, duplicateClip, revertClip } = useEditorStore.getState()
 
         // Check for Ctrl (Windows/Linux) or Cmd (Mac)
         const ctrlOrCmd = event.ctrlKey || event.metaKey
@@ -48,6 +48,24 @@ export function useKeyboardShortcuts() {
             event.preventDefault()
             if (canRedo) {
                 redo()
+            }
+            return
+        }
+
+        // Duplicate: Ctrl/Cmd + D
+        if (event.key === 'd') {
+            event.preventDefault()
+            if (selectedClipId) {
+                duplicateClip(selectedClipId)
+            }
+            return
+        }
+
+        // Revert: Ctrl/Cmd + Shift + R
+        if (event.key === 'r' && event.shiftKey) {
+            event.preventDefault()
+            if (selectedClipId) {
+                revertClip(selectedClipId)
             }
             return
         }

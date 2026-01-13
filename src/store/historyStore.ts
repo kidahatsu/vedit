@@ -7,6 +7,7 @@ import { create } from 'zustand'
 import { temporal } from 'zundo'
 import type { Clip, TransformState } from './types'
 import { DEFAULT_TRANSFORM } from './types'
+import { generateId } from '../lib/utils'
 
 // Re-export types
 export type { Clip, TransformState }
@@ -45,6 +46,11 @@ export interface UndoableActions {
     // Transform operations
     updateTransform: (id: string, transform: Partial<TransformState>) => void
     resetTransform: (id: string) => void
+
+    // Clip quick actions
+    revertClip: (id: string) => void
+    duplicateClip: (id: string) => void
+    revertAllClips: () => void
 
     // Reset
     reset: () => void
@@ -167,6 +173,54 @@ export const useHistoryStore = create<UndoableStore>()(
                     clips: (state?.clips ?? []).map((c) =>
                         c.id === id ? { ...c, transform: { ...DEFAULT_TRANSFORM } } : c
                     ),
+                })),
+
+            revertClip: (id) =>
+                set((state) => ({
+                    clips: (state?.clips ?? []).map((c) =>
+                        c.id === id
+                            ? {
+                                ...c,
+                                trimStart: 0,
+                                trimEnd: c.duration,
+                                splitPoints: [],
+                                transform: { ...DEFAULT_TRANSFORM },
+                            }
+                            : c
+                    ),
+                })),
+
+            duplicateClip: (id) =>
+                set((state) => {
+                    const clips = state?.clips ?? []
+                    const clipIndex = clips.findIndex((c) => c.id === id)
+                    if (clipIndex === -1) return { clips }
+
+                    const originalClip = clips[clipIndex]
+                    const newClip: Clip = {
+                        ...originalClip,
+                        id: generateId(),
+                        name: originalClip.name.replace(/\.([^.]+)$/, ' (copy).$1'),
+                    }
+
+                    const newClips = [...clips]
+                    newClips.splice(clipIndex + 1, 0, newClip)
+
+                    return {
+                        clips: newClips,
+                        selectedClipId: newClip.id,
+                    }
+                }),
+
+            revertAllClips: () =>
+                set((state) => ({
+                    clips: (state?.clips ?? []).map((c) => ({
+                        ...c,
+                        trimStart: 0,
+                        trimEnd: c.duration,
+                        splitPoints: [],
+                        transform: { ...DEFAULT_TRANSFORM },
+                    })),
                 })),
 
             reset: () => set(initialState),

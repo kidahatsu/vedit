@@ -78,24 +78,49 @@ export function useAutoSave(): UseAutoSaveReturn {
     useEffect(() => {
         if (!isAvailable || hasLoadedRef.current) return
 
+        let mounted = true
+
         const load = async () => {
-            const saved = await loadProject()
-            if (saved && saved.clips.length > 0) {
-                // Use direct store access to restore state
-                const store = useEditorStore.getState()
-                // Add clips one by one to restore
-                for (const clip of saved.clips) {
-                    store.addClip(clip)
+            try {
+                const saved = await loadProject()
+
+                // If unmounted or already loaded by another effect call, abort
+                if (!mounted || hasLoadedRef.current) return
+
+                if (saved && saved.clips.length > 0) {
+                    // Use direct store access to restore state
+                    const store = useEditorStore.getState()
+
+                    // Clear existing clips before loading to be safe
+                    // This prevents duplicates if something else added clips
+                    // But we don't have a clearClips action exposed via stableActions... 
+                    // We can inspect store first. 
+                    if (store.clips.length > 0) {
+                        console.warn('[AutoSave] Store not empty on load, skipping restoration to avoid duplicates')
+                        hasLoadedRef.current = true
+                        return
+                    }
+
+                    // Add clips one by one to restore
+                    for (const clip of saved.clips) {
+                        store.addClip(clip)
+                    }
+                    // Restore selection
+                    if (saved.selectedClipId) {
+                        store.selectClip(saved.selectedClipId)
+                    }
                 }
-                // Restore selection
-                if (saved.selectedClipId) {
-                    store.selectClip(saved.selectedClipId)
-                }
+                hasLoadedRef.current = true
+            } catch (err) {
+                console.error('[AutoSave] Failed to load project:', err)
             }
-            hasLoadedRef.current = true
         }
 
         load()
+
+        return () => {
+            mounted = false
+        }
     }, [isAvailable])
 
     // Auto-save on state changes (skip initial mount)

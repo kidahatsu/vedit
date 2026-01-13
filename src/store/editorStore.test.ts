@@ -157,4 +157,62 @@ describe('editorStore', () => {
             expect(state.splitMode).toBe(false)
         })
     })
+
+    describe('revertClip', () => {
+        it('reverts clip modifications', () => {
+            const clip = createMockClip({
+                id: 'test-1',
+                trimStart: 10,
+                splitPoints: [20],
+                transform: { ...DEFAULT_TRANSFORM, rotation: 90 },
+            })
+            useEditorStore.getState().addClip(clip)
+            useEditorStore.getState().revertClip('test-1')
+
+            const reverted = useEditorStore.getState().clips[0]
+            expect(reverted.trimStart).toBe(0)
+            expect(reverted.splitPoints).toHaveLength(0)
+            expect(reverted.transform.rotation).toBe(0)
+            // Should preserve other props
+            expect(reverted.id).toBe('test-1')
+            expect(reverted.name).toBe('test.mp4')
+        })
+    })
+
+    describe('duplicateClip', () => {
+        it('duplicates a clip', () => {
+            const clip = createMockClip({ id: 'test-1', trimStart: 10 })
+            const { addClip, duplicateClip } = useEditorStore.getState()
+
+            addClip(clip)
+            duplicateClip('test-1')
+
+            const state = useEditorStore.getState()
+            expect(state.clips).toHaveLength(2)
+            expect(state.clips[0].id).toBe('test-1')
+            expect(state.clips[1].name).toBe('test (copy).mp4')
+            expect(state.clips[1].trimStart).toBe(10)
+            expect(state.selectedClipId).toBe(state.clips[1].id)
+        })
+    })
+
+    describe('revertAllClips', () => {
+        it('reverts all clips', () => {
+            const clip1 = createMockClip({ id: 'test-1', trimStart: 10 })
+            const clip2 = createMockClip({
+                id: 'test-2',
+                transform: { ...DEFAULT_TRANSFORM, rotation: 180 },
+            })
+            const { addClip, revertAllClips } = useEditorStore.getState()
+
+            addClip(clip1)
+            addClip(clip2)
+
+            revertAllClips()
+
+            const state = useEditorStore.getState()
+            expect(state.clips[0].trimStart).toBe(0)
+            expect(state.clips[1].transform.rotation).toBe(0)
+        })
+    })
 })

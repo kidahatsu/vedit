@@ -92,3 +92,69 @@ export function useSplitMode(): boolean {
 export function useCropMode(): boolean {
     return useEditorStore((state) => state.cropMode)
 }
+
+/**
+ * Helper to check if a clip has any modifications from its original state.
+ * A clip is considered modified if:
+ * - trimStart > 0
+ * - trimEnd < duration
+ * - splitPoints has items
+ * - transform differs from defaults
+ */
+function clipHasModifications(clip: Clip): boolean {
+    const t = clip.transform
+    const hasTransformMods =
+        t.aspectRatio !== 'original' ||
+        t.cropX !== 0 ||
+        t.cropY !== 0 ||
+        t.cropWidth !== 1 ||
+        t.cropHeight !== 1 ||
+        t.rotation !== 0 ||
+        t.flipH ||
+        t.flipV ||
+        t.speed !== 1 ||
+        t.volume !== 100 ||
+        t.muted ||
+        t.fadeIn !== 0 ||
+        t.fadeOut !== 0
+
+    return (
+        clip.trimStart > 0 ||
+        clip.trimEnd < clip.duration ||
+        clip.splitPoints.length > 0 ||
+        hasTransformMods
+    )
+}
+
+/**
+ * Selector hook for whether the selected clip has any modifications.
+ * Used to enable/disable the "Revert Clip" button.
+ *
+ * @returns True if the selected clip has been modified from its original state
+ */
+export function useSelectedClipHasModifications(): boolean {
+    return useEditorStore(
+        useCallback(
+            (state) => {
+                const clip = state.clips.find((c) => c.id === state.selectedClipId)
+                return clip ? clipHasModifications(clip) : false
+            },
+            []
+        )
+    )
+}
+
+/**
+ * Selector hook for whether any clip has modifications.
+ * Used to enable/disable the "Revert All" button.
+ *
+ * @returns True if any clip has been modified
+ */
+export function useAnyClipHasModifications(): boolean {
+    return useEditorStore(
+        useCallback(
+            (state) => state.clips.some(clipHasModifications),
+            []
+        )
+    )
+}
