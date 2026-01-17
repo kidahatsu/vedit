@@ -3,6 +3,7 @@ import { fetchFile, toBlobURL } from '@ffmpeg/util'
 import { type AspectRatioPreset, ASPECT_RATIO_DIMENSIONS } from '../store/editorStore'
 import { getEncodingArgs, getFileExtension, FFMPEG_CONFIG } from './ffmpeg/config'
 import { splitVideoWebCodecs, isWebCodecsSupported } from './webcodecs'
+import { debug, warn } from './logger'
 
 // Re-export for UI components
 export { isWebCodecsSupported }
@@ -50,7 +51,7 @@ export async function getFFmpeg(
         ffmpeg = new FFmpeg()
 
         ffmpeg.on('log', ({ message }) => {
-            console.log('[FFmpeg]', message)
+            debug('FFmpeg', message)
         })
 
         ffmpeg.on('progress', ({ progress, time }) => {
@@ -192,17 +193,17 @@ export async function splitVideo(
     // Use WebCodecs for frame-accurate splitting if available
     if (isWebCodecsSupported()) {
         try {
-            console.log('[splitVideo] Using WebCodecs for frame-accurate splitting')
+            debug('splitVideo', 'Using WebCodecs for frame-accurate splitting')
             return await splitVideoWebCodecs(file, trimStart, trimEnd, splitPoints, onProgress)
         } catch (error) {
             // WebCodecs failed - fall back to FFmpeg
-            console.warn('[splitVideo] WebCodecs failed, falling back to FFmpeg:', error)
+            warn('splitVideo', 'WebCodecs failed, falling back to FFmpeg:', error)
             onProgress?.(5, 'WebCodecs failed, using FFmpeg fallback...')
         }
     }
 
     // Fallback to FFmpeg (less accurate but broader browser/codec support)
-    console.log('[splitVideo] Using FFmpeg for splitting')
+    debug('splitVideo', 'Using FFmpeg for splitting')
     return splitVideoFFmpeg(file, trimStart, trimEnd, splitPoints, onProgress)
 }
 

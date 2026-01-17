@@ -7,11 +7,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/your-username/vedit.git"
+    "url": "https://github.com/kidahatsu/vedit.git"
   },
-  "homepage": "https://github.com/your-username/vedit#readme",
+  "homepage": "https://github.com/kidahatsu/vedit#readme",
   "bugs": {
-    "url": "https://github.com/your-username/vedit/issues"
+    "url": "https://github.com/kidahatsu/vedit/issues"
   },
   "keywords": [
     "video-editor",

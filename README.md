@@ -8,6 +8,8 @@ A professional-grade video editor running entirely in the browser using FFmpeg W
 [![Vite](https://img.shields.io/badge/Vite-6-646CFF?logo=vite)](https://vitejs.dev)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
+---
+
 ## ✨ Features
 
 - **Trim & Split** — Set in/out points, add split markers, export segments
@@ -19,33 +21,91 @@ A professional-grade video editor running entirely in the browser using FFmpeg W
 - **PWA Ready** — Install as a desktop app, works offline
 - **Privacy First** — All processing happens locally, nothing uploaded
 
-## 🚀 Quick Start
+---
+
+## 📋 Requirements
+
+### System Requirements
+
+| Requirement | Minimum |
+|-------------|---------|
+| **Node.js** | 18.0+ |
+| **npm** | 9.0+ |
+| **RAM** | 4 GB (8 GB recommended for 4K) |
+| **Disk** | 500 MB for dependencies |
+
+### Browser Requirements
+
+| Browser | Version | Support Level |
+|---------|---------|---------------|
+| **Chrome** | 94+ | ✅ Full (WebCodecs + FFmpeg) |
+| **Edge** | 94+ | ✅ Full |
+| **Safari** | 16.4+ | ✅ Full |
+| **Firefox** | 90+ | ⚠️ FFmpeg only (no WebCodecs) |
+
+> **Production Note:** Your server must set [COOP/COEP headers](https://web.dev/coop-coep/) to enable SharedArrayBuffer for FFmpeg threading:
+> ```
+> Cross-Origin-Opener-Policy: same-origin
+> Cross-Origin-Embedder-Policy: require-corp
+> ```
+
+---
+
+## 🚀 Installation
+
+### Quick Start
 
 ```bash
+# Clone the repository
+git clone https://github.com/kidahatsu/vedit.git
+cd vedit
+
 # Install dependencies
 npm install
 
-# Start dev server
+# Start development server
 npm run dev
 ```
 
 Open [http://localhost:5173](http://localhost:5173) and drag a video file to get started.
 
+### Production Build
+
+```bash
+# Build optimized bundle
+npm run build
+
+# Preview the production build locally
+npm run preview
+```
+
+The production build outputs to `dist/` — deploy this folder to any static hosting service.
+
+---
+
 ## 📦 Available Scripts
 
 | Script | Description |
 |--------|-------------|
-| `npm run dev` | Start development server |
+| `npm run dev` | Start development server with HMR |
 | `npm run build` | Build for production |
 | `npm run preview` | Preview production build |
 | `npm run lint` | Run ESLint |
+| `npm run lint:fix` | Fix ESLint issues automatically |
 | `npm run typecheck` | TypeScript type checking |
 | `npm test` | Run tests with Vitest |
+| `npm run test:watch` | Run tests in watch mode |
 | `npm run format` | Format code with Prettier |
+
+---
 
 ## 🏗️ Architecture
 
-![VEdit Architecture](docs/assets/architecture.png)
+<p align="center">
+  <img src="docs/assets/architecture.png" alt="VEdit Architecture" width="700">
+</p>
+
+### Project Structure
 
 ```
 src/
@@ -59,7 +119,8 @@ src/
 ├── lib/
 │   ├── ffmpeg.ts        # FFmpeg WASM integration
 │   ├── webcodecs.ts     # WebCodecs splitting
-│   └── errors.ts        # Custom error classes
+│   ├── storage.ts       # IndexedDB persistence
+│   └── logger.ts        # Conditional debug logging
 ├── store/               # Zustand state management
 ├── utils/               # Validation, transforms
 └── styles/              # Design tokens + globals
@@ -72,27 +133,45 @@ src/
 | **Security** | MIME + extension validation, filename sanitization |
 | **Error Handling** | Custom `VideoProcessingError` with user-friendly messages |
 | **Performance** | Memoized selectors, throttled updates |
-| **DRY** | Centralized FFmpeg config, shared utilities |
-| **Testing** | Vitest with 58 unit/integration tests |
+| **Memory** | Automatic blob URL cleanup, conditional logging |
+| **Testing** | Vitest with 80 unit/integration tests |
+
+---
 
 ## 🛠️ Tech Stack
 
-- **React 19** — UI with hooks
-- **Zustand** — Lightweight state management
-- **FFmpeg WASM** — Client-side video processing
-- **WebCodecs** — Frame-accurate splitting
-- **Vite** — Fast builds with HMR
-- **TypeScript** — Full type safety
-- **Vitest** — Unit testing
+| Category | Technology |
+|----------|------------|
+| **UI Framework** | React 19 |
+| **State** | Zustand + Zundo (undo/redo) |
+| **Video Processing** | FFmpeg WASM 0.12+ |
+| **Frame-Accurate Splitting** | WebCodecs API |
+| **Build** | Vite 6 |
+| **Language** | TypeScript (strict mode) |
+| **Testing** | Vitest + Testing Library |
+| **Styling** | CSS Modules |
+
+---
+
+## 🔒 Security
+
+See [SECURITY.md](SECURITY.md) for vulnerability reporting and architecture security details.
+
+---
 
 ## 🤝 Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and guidelines.
 
+---
+
 ## 📋 Changelog
 
 See [CHANGELOG.md](CHANGELOG.md) for version history.
 
+---
+
 ## 📄 License
 
 MIT — see [LICENSE](LICENSE)
+

@@ -18,7 +18,7 @@ interface ExportState {
     reset: () => void
 }
 
-export const useExportStore = create<ExportState>((set) => ({
+export const useExportStore = create<ExportState>((set, get) => ({
     status: 'idle',
     progress: 0,
     message: '',
@@ -64,7 +64,12 @@ export const useExportStore = create<ExportState>((set) => ({
             error
         }),
 
-    reset: () =>
+    reset: () => {
+        // Revoke any existing blob URL to prevent memory leaks
+        const { outputUrl } = get()
+        if (outputUrl) {
+            URL.revokeObjectURL(outputUrl)
+        }
         set({
             status: 'idle',
             progress: 0,
@@ -72,4 +77,5 @@ export const useExportStore = create<ExportState>((set) => ({
             outputUrl: null,
             error: null
         })
+    }
 }))

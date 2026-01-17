@@ -5,6 +5,7 @@
 
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb'
 import type { Clip, TransformState } from '../store/types'
+import { debug, warn } from './logger'
 
 // Database configuration
 const DB_NAME = 'vedit-projects'
@@ -96,7 +97,7 @@ async function clipToStoredClip(clip: Clip, projectId: string, order: number): P
             const response = await fetch(clip.thumbnailUrl)
             thumbnailBlob = await response.blob()
         } catch (e) {
-            console.warn('[Storage] Failed to fetch thumbnail blob for persistence:', e)
+            warn('Storage', 'Failed to fetch thumbnail blob for persistence:', e)
         }
     }
 
@@ -132,7 +133,7 @@ function storedClipToClip(stored: StoredClip): Clip {
     }
     // If no blob but we have a blob URL, it's dead (from legacy persistence), so kill it to avoid 404s
     else if (thumbnailUrl && thumbnailUrl.startsWith('blob:')) {
-        console.warn('[Storage] Found dead blob URL without backing blob, invalidating:', thumbnailUrl)
+        warn('Storage', 'Found dead blob URL without backing blob, invalidating:', thumbnailUrl)
         thumbnailUrl = null
     }
 
@@ -189,7 +190,7 @@ export async function saveProject(
         }
 
         await tx.done
-        console.log('[Storage] Project saved:', clips.length, 'clips')
+        debug('Storage', 'Project saved:', clips.length, 'clips')
     } catch (error) {
         console.error('[Storage] Failed to save project:', error)
         throw error
@@ -210,7 +211,7 @@ export async function loadProject(): Promise<{
         // Get project
         const project = await db.get(STORE_PROJECT, DEFAULT_PROJECT_ID)
         if (!project) {
-            console.log('[Storage] No saved project found')
+            debug('Storage', 'No saved project found')
             return null
         }
 
@@ -220,7 +221,7 @@ export async function loadProject(): Promise<{
 
         const clips = storedClips.map(storedClipToClip)
 
-        console.log('[Storage] Project loaded:', clips.length, 'clips')
+        debug('Storage', 'Project loaded:', clips.length, 'clips')
 
         return {
             clips,
@@ -249,7 +250,7 @@ export async function clearProject(): Promise<void> {
         }
 
         await tx.done
-        console.log('[Storage] Project cleared')
+        debug('Storage', 'Project cleared')
     } catch (error) {
         console.error('[Storage] Failed to clear project:', error)
     }
