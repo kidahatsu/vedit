@@ -30,6 +30,7 @@ export interface UndoableActions {
     addClip: (clip: Clip) => void
     removeClip: (id: string) => void
     selectClip: (id: string | null) => void
+    updateClipFile: (id: string, file: File) => void
 
     // Trim operations
     updateClipTrim: (id: string, trimStart: number, trimEnd: number) => void
@@ -99,6 +100,11 @@ export const useHistoryStore = create<UndoableStore>()(
                 })),
 
             selectClip: (id) => set({ selectedClipId: id }),
+
+            updateClipFile: (id, file) =>
+                set((state) => ({
+                    clips: state.clips.map((c) => (c.id === id ? { ...c, file } : c)),
+                })),
 
             updateClipTrim: (id, trimStart, trimEnd) =>
                 set((state) => ({

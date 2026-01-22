@@ -4,7 +4,7 @@
  */
 
 /** Types of video processing operations */
-export type VideoOperation = 'trim' | 'merge' | 'split' | 'transform' | 'load'
+export type VideoOperation = 'trim' | 'merge' | 'split' | 'transform' | 'load' | 'extractFrame' | 'detachAudio'
 
 /** User-friendly error messages by operation type */
 const USER_MESSAGES: Record<VideoOperation, string> = {
@@ -13,6 +13,8 @@ const USER_MESSAGES: Record<VideoOperation, string> = {
     split: 'Failed to split the video. Try reducing the number of split points.',
     transform: 'Failed to apply transformations. Try simplifying the edits.',
     load: 'Failed to load the video file. The file may be corrupted.',
+    extractFrame: 'Failed to extract frame. The video might be corrupted.',
+    detachAudio: 'Failed to detach audio. The video might not have an audio track.',
 }
 
 /**

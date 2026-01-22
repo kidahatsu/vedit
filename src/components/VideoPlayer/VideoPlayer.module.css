@@ -374,6 +374,46 @@
     white-space: nowrap;
 }
 
+.codecWarning {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(8px);
+    z-index: 50;
+    padding: var(--space-6);
+    text-align: center;
+}
+
+.codecWarningContent {
+    max-width: 400px;
+}
+
+.codecWarningIcon {
+    color: var(--color-accent-warning);
+    margin-bottom: var(--space-4);
+}
+
+.codecWarning h3 {
+    font-size: var(--font-size-xl);
+    margin-bottom: var(--space-2);
+    color: var(--color-text-primary);
+}
+
+.codecWarning p {
+    font-size: var(--font-size-base);
+    color: var(--color-text-secondary);
+    margin-bottom: var(--space-4);
+}
+
+.codecWarning .hint {
+    font-size: var(--font-size-sm);
+    color: var(--color-accent-primary);
+    font-weight: 500;
+}
+
 /* Crop Preview (when not in edit mode) */
 .cropPreviewOverlay {
     position: absolute;

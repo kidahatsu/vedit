@@ -58,6 +58,7 @@ interface EditorState extends TransientState {
     addClip: (clip: Clip) => void
     removeClip: (id: string) => void
     selectClip: (id: string | null) => void
+    updateClipFile: (id: string, file: File) => void
     updateClipTrim: (id: string, trimStart: number, trimEnd: number) => void
     addSplitPoint: (id: string, time: number) => void
     removeSplitPoint: (id: string, time: number) => void
@@ -98,6 +99,7 @@ const stableActions = {
     addClip: initialHistoryState.addClip,
     removeClip: initialHistoryState.removeClip,
     selectClip: initialHistoryState.selectClip,
+    updateClipFile: initialHistoryState.updateClipFile,
     updateClipTrim: initialHistoryState.updateClipTrim,
     addSplitPoint: initialHistoryState.addSplitPoint,
     removeSplitPoint: initialHistoryState.removeSplitPoint,
@@ -141,6 +143,7 @@ function buildCombinedState(): EditorState {
         addClip: stableActions.addClip,
         removeClip: stableActions.removeClip,
         selectClip: stableActions.selectClip,
+        updateClipFile: stableActions.updateClipFile,
         updateClipTrim: stableActions.updateClipTrim,
         addSplitPoint: stableActions.addSplitPoint,
         removeSplitPoint: stableActions.removeSplitPoint,

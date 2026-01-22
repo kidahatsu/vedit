@@ -8,10 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **User Manual**: Comprehensive guide (`USER_MANUAL.md`) covering editing, transforming, and troubleshooting.
+- **Advanced FFmpeg**: Frame extraction (WebP), Audio removal/extraction, and Visibility Fixer (transcoding).
 - Antigravity Agent configuration (`.agent/`) with Skills, Workflows, and Rules.
 - Codebase audit workflow and session wrap-up workflow.
 
 ### Fixed
+- Memory leak in `extractFrame` (missing input file cleanup).
 - Lint errors in `src/lib/ffmpeg.ts` (unused variables, redundant error handling).
 - Security vulnerability in `lodash` (via `npm audit fix`).
 

@@ -1,14 +1,15 @@
-import { Scissors, Link, RotateCcw, Download, Split, Rewind } from 'lucide-react'
+import { Scissors, Link, RotateCcw, Download, Split, Rewind, Image, Music, Wand2 } from 'lucide-react'
 import { useEditorStore, type Clip } from '../../store/editorStore'
 import { useSelectedClip, useHasClips, useCanMerge, useCanSplit, useSelectedClipHasModifications } from '../../store/selectors'
 import { useExportStore } from '../../store/exportStore'
-import { trimVideo, mergeVideos, splitVideo, transformVideo, reverseVideo } from '../../lib/ffmpeg'
+import { trimVideo, mergeVideos, splitVideo, transformVideo, reverseVideo, extractFrame, extractAudio, removeAudio, transcodeToH264 } from '../../lib/ffmpeg'
 import { createClipFromFile } from '../../utils/clipCreation'
 import { wrapError } from '../../lib/errors'
 import { hasTransformsApplied } from '../../utils/videoTransforms'
 import { sanitizeFilename } from '../../utils/validation'
 import { type ExportPreset } from '../../store/exportPresets'
 import { type ExportMode } from '../../App'
+import { saveProject } from '../../lib/storage'
 import styles from './ActionBar.module.css'
 
 interface ActionBarProps {
@@ -22,6 +23,7 @@ export function ActionBar({ onOpenExportModal }: ActionBarProps) {
     const addClip = useEditorStore((state) => state.addClip)
     const selectClip = useEditorStore((state) => state.selectClip)
     const setLoading = useEditorStore((state) => state.setLoading)
+    const updateClipFile = useEditorStore((state) => state.updateClipFile)
     const { startExport, setProcessing, setComplete, setError } = useExportStore()
 
     const selectedClip = useSelectedClip()
@@ -198,6 +200,126 @@ export function ActionBar({ onOpenExportModal }: ActionBarProps) {
         }
     }
 
+    const handleExtractFrame = async (mode: 'first' | 'last') => {
+        if (!selectedClip) return
+
+        setLoading(true)
+        try {
+            // For last frame, subtract a small amount to ensure we are within the video duration
+            // and actually get a frame. 0.1s (100ms) is usually safe for >10fps video.
+            const time = mode === 'first'
+                ? selectedClip.trimStart
+                : Math.max(selectedClip.trimStart, selectedClip.trimEnd - 0.1)
+            const frameBlob = await extractFrame(selectedClip.file, time, (progress, message) => setProcessing(progress, message))
+
+            // Download frame
+            const url = URL.createObjectURL(frameBlob)
+            const a = document.createElement('a')
+            a.href = url
+            const baseName = sanitizeFilename(selectedClip.name.replace(/\.[^/.]+$/, ''))
+            a.download = `${baseName}_${mode}_frame.webp`
+            document.body.appendChild(a)
+            a.click()
+            document.body.removeChild(a)
+            URL.revokeObjectURL(url)
+
+            setComplete('')
+        } catch (error) {
+            console.error('[ActionBar] Failed to extract frame:', error)
+            const err = wrapError(error, 'extractFrame', { filename: selectedClip.name })
+            setError(err.userMessage)
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    const handleDetachAudio = async () => {
+        if (!selectedClip) return
+
+        setLoading(true)
+        try {
+            // 1. Extract Audio
+            const audioBlob = await extractAudio(
+                selectedClip.file,
+                selectedClip.trimStart,
+                selectedClip.trimEnd,
+                (progress, message) => setProcessing(progress, `Extracting audio: ${message}`)
+            )
+
+            // 2. Remove Audio (get video only)
+            const videoBlob = await removeAudio(
+                selectedClip.file,
+                selectedClip.trimStart,
+                selectedClip.trimEnd,
+                (progress, message) => setProcessing(progress, `Extracting video: ${message}`)
+            )
+
+            const baseName = sanitizeFilename(selectedClip.name.replace(/\.[^/.]+$/, ''))
+
+            // Download Audio
+            const audioUrl = URL.createObjectURL(audioBlob)
+            const aAudio = document.createElement('a')
+            aAudio.href = audioUrl
+            aAudio.download = `${baseName}_audio.mp3`
+            document.body.appendChild(aAudio)
+            aAudio.click()
+            document.body.removeChild(aAudio)
+            URL.revokeObjectURL(audioUrl)
+
+            // Download Video
+            const videoUrl = URL.createObjectURL(videoBlob)
+            const aVideo = document.createElement('a')
+            aVideo.href = videoUrl
+            aVideo.download = `${baseName}_video_only.mp4`
+            document.body.appendChild(aVideo)
+            aVideo.click()
+            document.body.removeChild(aVideo)
+            URL.revokeObjectURL(videoUrl)
+
+            setComplete('')
+        } catch (error) {
+            console.error('[ActionBar] Failed to detach audio:', error)
+            const err = wrapError(error, 'detachAudio', { filename: selectedClip.name })
+            setError(err.userMessage)
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    const handleFixVisibility = async () => {
+        if (!selectedClip) return
+
+        try {
+            startExport()
+            setLoading(true)
+            setProcessing(0, 'Initializing transcoder...')
+
+            const blob = await transcodeToH264(selectedClip.file, (progress, message) => {
+                setProcessing(progress, message)
+            })
+
+            const fixedFile = new File([blob], selectedClip.name, { type: 'video/mp4' })
+            updateClipFile(selectedClip.id, fixedFile)
+
+            // Explicitly trigger save to ensure persistence before any other action
+            try {
+                const currentClips = useEditorStore.getState().clips
+                const currentSelectedId = useEditorStore.getState().selectedClipId
+                await saveProject(currentClips, currentSelectedId)
+            } catch (saveError) {
+                console.warn('[ActionBar] Immediate save failed, relying on auto-save:', saveError)
+            }
+
+            setComplete('') // Success without download
+            // window.location.reload() -> Removed! VideoPlayer now reacts to file change.
+        } catch (error) {
+            console.error('[ActionBar] Failed to transcode video:', error)
+            setError('Transcoding failed. Please try a different video format.')
+        } finally {
+            setLoading(false)
+        }
+    }
+
     return (
         <footer className={styles.actionBar} role="toolbar" aria-label="Video editing actions">
             <div className={styles.group}>
@@ -249,6 +371,48 @@ export function ActionBar({ onOpenExportModal }: ActionBarProps) {
                 >
                     <Rewind size={16} />
                     Reverse
+                </button>
+
+                <div className={styles.divider} />
+
+                <button
+                    className="btn"
+                    onClick={() => handleExtractFrame('first')}
+                    disabled={!selectedClip}
+                    title="Extract first frame as PNG"
+                >
+                    <Image size={16} />
+                    First Frame
+                </button>
+
+                <button
+                    className="btn"
+                    onClick={() => handleExtractFrame('last')}
+                    disabled={!selectedClip}
+                    title="Extract last frame as PNG"
+                >
+                    <Image size={16} />
+                    Last Frame
+                </button>
+
+                <button
+                    className="btn"
+                    onClick={handleDetachAudio}
+                    disabled={!selectedClip}
+                    title="Detach audio from video"
+                >
+                    <Music size={16} />
+                    Detach Audio
+                </button>
+
+                <button
+                    className="btn btn-warning"
+                    onClick={handleFixVisibility}
+                    disabled={!selectedClip}
+                    title="Convert video to a browser-compatible format (H.264)"
+                >
+                    <Wand2 size={16} />
+                    Fix Visibility
                 </button>
 
                 <div className={styles.divider} />

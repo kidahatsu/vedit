@@ -10,6 +10,14 @@ A video editor running entirely in the browser using FFmpeg WASM. No server uplo
 
 ---
 
+## 📚 Documentation
+
+- **[User Manual](USER_MANUAL.md)**: Comprehensive guide on how to use VEdit.
+- **[Architecture](docs/assets/architecture.png)**: System design and technical overview.
+- **[Contributing](CONTRIBUTING.md)**: Guide for developers.
+
+---
+
 ## ✨ Features
 
 - **Trim & Split** — Set in/out points, add split markers, export segments

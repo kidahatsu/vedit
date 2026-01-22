@@ -4,6 +4,7 @@ import { useEditorStore, ASPECT_RATIO_DIMENSIONS } from '../../store/editorStore
 import { useSelectedClip } from '../../store/selectors'
 import { formatTime } from '../../lib/utils'
 import { buildVideoTransformStyle, calculateCropBoxStyle, hasCropApplied } from '../../utils/videoTransforms'
+import { probeVideo } from '../../lib/ffmpeg'
 import styles from './VideoPlayer.module.css'
 
 type DragHandle = 'topLeft' | 'topRight' | 'bottomLeft' | 'bottomRight' | 'top' | 'bottom' | 'left' | 'right' | 'move' | null
@@ -26,6 +27,7 @@ export function VideoPlayer() {
     const [volume, _setVolume] = useState(1)
     const [isMuted, setIsMuted] = useState(false)
     const [videoUrl, setVideoUrl] = useState<string | null>(null)
+    const [codec, setCodec] = useState<string | null>(null)
 
     // Crop drag state
     const [isDragging, setIsDragging] = useState(false)
@@ -49,20 +51,20 @@ export function VideoPlayer() {
             return
         }
 
-        // Check if we already have a URL for this clip
-        if (blobUrlRef.current?.clipId === currentClipId) {
-            // Same clip, reuse existing URL
+        // Check if we already have a URL for this exact file reference
+        if (blobUrlRef.current?.clipId === currentClipId && (blobUrlRef.current as unknown as { file: File }).file === currentFile) {
+            // Same clip and same file, reuse existing URL
             setVideoUrl(blobUrlRef.current.url)
             return
         }
 
-        // Different clip, revoke old URL and create new one
+        // Different clip or different file, revoke old URL and create new one
         if (blobUrlRef.current) {
             URL.revokeObjectURL(blobUrlRef.current.url)
         }
 
         const newUrl = URL.createObjectURL(currentFile)
-        blobUrlRef.current = { url: newUrl, clipId: currentClipId }
+        blobUrlRef.current = { url: newUrl, clipId: currentClipId, file: currentFile } as { url: string; clipId: string; file: File }
         setVideoUrl(newUrl)
         setCurrentTime(selectedClip.trimStart)
 
@@ -72,6 +74,28 @@ export function VideoPlayer() {
             // For dependency changes, we handle it at the top of the effect
         }
     }, [selectedClip?.id, selectedClip?.file, selectedClip?.trimStart])
+
+    // Probe codec when clip changes
+    useEffect(() => {
+        if (!selectedClip?.file) {
+            setCodec(null)
+            return
+        }
+
+        let isMounted = true
+        probeVideo(selectedClip.file).then(info => {
+            if (isMounted && info.codec_name) {
+                setCodec(info.codec_name)
+                if (info.codec_name.includes('hevc') || info.codec_name.includes('hvc1')) {
+                    console.warn(`[VideoPlayer] Incompatible codec detected: ${info.codec_name}. Video may be invisible.`)
+                }
+            }
+        })
+
+        return () => {
+            isMounted = false
+        }
+    }, [selectedClip?.id, selectedClip?.file])
 
     // Cleanup on component unmount
     useEffect(() => {
@@ -98,35 +122,69 @@ export function VideoPlayer() {
             }
         }
 
+        const logDiagnostics = () => {
+            if (!videoRef.current) return
+            const v = videoRef.current
+            const rect = v.getBoundingClientRect()
+            console.log(`[VideoPlayer] VISIBILITY CHECK:
+                ReadyState: ${v.readyState}
+                CurrentTime: ${v.currentTime}
+                Video Size: ${v.videoWidth}x${v.videoHeight}
+                DOM Rect: ${rect.width}x${rect.height} at (${rect.left}, ${rect.top})
+                Offset Size: ${v.offsetWidth}x${v.offsetHeight}
+                Parent Size: ${v.parentElement?.clientWidth}x${v.parentElement?.clientHeight}
+                Src (first 50): ${v.src.substring(0, 50)}...`)
+        }
+
         const handleLoadedMetadata = () => {
             setDuration(video.duration)
             if (selectedClip) {
-                video.currentTime = selectedClip.trimStart
+                // Nudge it to 0.1s to be sure we are on a real frame
+                video.currentTime = selectedClip.trimStart + 0.1
             }
+            logDiagnostics()
         }
 
+        const handleCanPlay = () => {
+            logDiagnostics()
+        }
+
+        const handlePlay = () => setIsPlaying(true)
+        const handlePause = () => setIsPlaying(false)
         const handleEnded = () => setIsPlaying(false)
 
         // Handle video errors (e.g., revoked blob URLs after undo)
-        const handleError = () => {
+        const handleError = (e: Event) => {
+            const videoElement = e.currentTarget as HTMLVideoElement;
+            console.error('Video error:', videoElement.error)
             // Silently handle errors from revoked blob URLs
             // This can happen when undo removes a clip and the URL is revoked
             setVideoUrl(null)
             setIsPlaying(false)
+            logDiagnostics()
         }
 
         video.addEventListener('timeupdate', handleTimeUpdate)
         video.addEventListener('loadedmetadata', handleLoadedMetadata)
+        video.addEventListener('canplay', handleCanPlay)
+        video.addEventListener('play', handlePlay)
+        video.addEventListener('pause', handlePause)
         video.addEventListener('ended', handleEnded)
         video.addEventListener('error', handleError)
+
+        // Initial check
+        logDiagnostics()
 
         return () => {
             video.removeEventListener('timeupdate', handleTimeUpdate)
             video.removeEventListener('loadedmetadata', handleLoadedMetadata)
+            video.removeEventListener('canplay', handleCanPlay)
+            video.removeEventListener('play', handlePlay)
+            video.removeEventListener('pause', handlePause)
             video.removeEventListener('ended', handleEnded)
             video.removeEventListener('error', handleError)
         }
-    }, [selectedClip])
+    }, [videoUrl, selectedClipId, selectedClip])
 
     // Sync playback rate with speed transform for live preview
     useEffect(() => {
@@ -370,9 +428,23 @@ export function VideoPlayer() {
                                 src={videoUrl}
                                 className={styles.video}
                                 style={videoTransformStyle}
+                                muted
+                                playsInline
                                 onClick={!cropMode ? togglePlay : undefined}
                             />
                         </div>
+
+                        {/* Incompatible Codec Warning */}
+                        {(codec?.includes('hevc') || codec?.includes('hvc1')) && (
+                            <div className={styles.codecWarning}>
+                                <div className={styles.codecWarningContent}>
+                                    <VolumeX size={48} className={styles.codecWarningIcon} />
+                                    <h3>Unsupported Video Format</h3>
+                                    <p>This video uses the <strong>{codec}</strong> codec, which your browser doesn't support for preview.</p>
+                                    <p className={styles.hint}>Use <strong>"Fix Visibility"</strong> in Actions to make it visible.</p>
+                                </div>
+                            </div>
+                        )}
 
                         {/* Aspect Ratio Indicator */}
                         {aspectRatioLabel && (

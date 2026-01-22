@@ -527,3 +527,189 @@ export async function reverseVideo(
     onProgress?.(100, 'Complete!')
     return new Blob([data as BlobPart], { type: 'video/mp4' })
 }
+
+export async function extractFrame(
+    file: File,
+    time: number,
+    onProgress?: (progress: number, message: string) => void
+): Promise<Blob> {
+    const ffmpeg = await getFFmpeg(onProgress)
+    const inputName = 'input' + getFileExtension(file.name)
+    const outputName = 'frame.webp' // Using WebP for better stability in WASM
+
+    console.log(`[FFmpeg] Extracting frame at ${time.toFixed(3)}s as WebP (Size: ${(file.size / 1024 / 1024).toFixed(2)} MB)`)
+
+    try {
+        await ffmpeg.writeFile(inputName, await fetchFile(file))
+
+        try {
+            await ffmpeg.exec([
+                '-ss', time.toFixed(3),
+                '-i', inputName,
+                '-frames:v', '1',
+                '-c:v', 'libwebp',
+                '-lossless', '0',
+                '-q:v', '75',
+                '-f', 'webp',
+                '-update', '1',
+                '-y',
+                outputName
+            ])
+        } catch (execError: unknown) {
+            // Check if file exists anyway - some WASM builds abort on exit but finish the task
+            const stats = await ffmpeg.listDir('/')
+            const exists = stats.some(f => f.name === outputName)
+            if (exists) {
+                console.warn('[FFmpeg] Ignored Aborted() exit - output file found.')
+            } else {
+                throw execError
+            }
+        }
+
+        const data = await ffmpeg.readFile(outputName)
+        return new Blob([data as Uint8Array], { type: 'image/webp' })
+    } catch (error) {
+        console.error('[FFmpeg] extractFrame error:', error)
+        throw error
+    } finally {
+        try {
+            await ffmpeg.deleteFile(inputName).catch(() => { })
+            await ffmpeg.deleteFile(outputName).catch(() => { })
+        } catch { /* ignore cleanup errors */ }
+    }
+}
+
+export async function extractAudio(
+    file: File,
+    start: number,
+    end: number,
+    onProgress?: (progress: number, message: string) => void
+): Promise<Blob> {
+    const ffmpeg = await getFFmpeg(onProgress)
+    const { getFileExtension } = await import('./ffmpeg/config')
+    const inputName = 'input' + getFileExtension(file.name)
+    const outputName = 'audio.mp3'
+
+    try {
+        await ffmpeg.writeFile(inputName, await fetchFile(file))
+
+        await ffmpeg.exec([
+            '-i', inputName,
+            '-ss', start.toFixed(3),
+            '-to', end.toFixed(3),
+            '-q:a', '0',
+            '-map', 'a',
+            outputName
+        ])
+
+        const data = await ffmpeg.readFile(outputName)
+        return new Blob([data as Uint8Array], { type: 'audio/mpeg' })
+    } finally {
+        await ffmpeg.deleteFile(inputName)
+        await ffmpeg.deleteFile(outputName)
+    }
+}
+
+export async function removeAudio(
+    file: File,
+    start: number,
+    end: number,
+    onProgress?: (progress: number, message: string) => void
+): Promise<Blob> {
+    const ffmpeg = await getFFmpeg(onProgress)
+    const { getFileExtension } = await import('./ffmpeg/config')
+    const inputName = 'input' + getFileExtension(file.name)
+    const outputName = 'video_no_audio.mp4'
+
+    try {
+        await ffmpeg.writeFile(inputName, await fetchFile(file))
+
+        await ffmpeg.exec([
+            '-i', inputName,
+            '-ss', start.toFixed(3),
+            '-to', end.toFixed(3),
+            '-c:v', 'copy',
+            '-an',
+            outputName
+        ])
+
+        const data = await ffmpeg.readFile(outputName)
+        return new Blob([data as Uint8Array], { type: 'video/mp4' })
+    } finally {
+        await ffmpeg.deleteFile(inputName)
+        await ffmpeg.deleteFile(outputName)
+    }
+}
+
+export async function probeVideo(
+    file: File,
+    onProgress?: (progress: number, message: string) => void
+): Promise<{ codec_name?: string; width?: number; height?: number }> {
+    const ffmpeg = await getFFmpeg(onProgress)
+    const { getFileExtension } = await import('./ffmpeg/config')
+    const inputName = 'probe_input' + getFileExtension(file.name)
+
+    try {
+        await ffmpeg.writeFile(inputName, await fetchFile(file))
+
+        let output = ''
+        const logHandler = ({ message }: { message: string }) => {
+            output += message + '\n'
+        }
+        ffmpeg.on('log', logHandler)
+
+        // Use ffmpeg to get info. ffprobe is not typically included in the standard @ffmpeg/ffmpeg bundle
+        await ffmpeg.exec(['-i', inputName])
+
+        ffmpeg.off('log', logHandler)
+
+        // Find codec_name, width, height from logs
+        // Example: Stream #0:0(und): Video: h264 (High) (avc1 / 0x31637661), yuv420p, 1920x1080...
+        const videoStreamMatch = output.match(/Stream #\d:\d.*Video: ([^, ]+).* (\d+)x(\d+)/)
+        if (videoStreamMatch) {
+            return {
+                codec_name: videoStreamMatch[1].toLowerCase(),
+                width: parseInt(videoStreamMatch[2], 10),
+                height: parseInt(videoStreamMatch[3], 10)
+            }
+        }
+        return {}
+    } catch (error) {
+        console.warn('[FFmpeg] Probe failed (this is expected for info-only runs):', error)
+        // Re-parse output if exec threw but captured logs
+        return {}
+    } finally {
+        await ffmpeg.deleteFile(inputName).catch(() => { })
+    }
+}
+
+export async function transcodeToH264(
+    file: File,
+    onProgress?: (progress: number, message: string) => void
+): Promise<Blob> {
+    const ffmpeg = await getFFmpeg(onProgress)
+    const { getFileExtension } = await import('./ffmpeg/config')
+    const inputName = 'transcode_input' + getFileExtension(file.name)
+    const outputName = 'transcoded.mp4'
+
+    try {
+        await ffmpeg.writeFile(inputName, await fetchFile(file))
+
+        await ffmpeg.exec([
+            '-i', inputName,
+            '-c:v', 'libx264',
+            '-preset', 'ultrafast', // Speed over quality for interactive fixes
+            '-crf', '23',
+            '-c:a', 'aac',
+            '-pix_fmt', 'yuv420p',
+            '-movflags', '+faststart',
+            outputName
+        ])
+
+        const data = await ffmpeg.readFile(outputName)
+        return new Blob([data as Uint8Array], { type: 'video/mp4' })
+    } finally {
+        await ffmpeg.deleteFile(inputName).catch(() => { })
+        await ffmpeg.deleteFile(outputName).catch(() => { })
+    }
+}
