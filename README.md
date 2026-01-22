@@ -1,6 +1,6 @@
 # VEdit — Browser-Based Video Editor
 
-A professional-grade video editor running entirely in the browser using FFmpeg WASM. No server uploads, no plugins — just drag, drop, and edit.
+A video editor running entirely in the browser using FFmpeg WASM. No server uploads, no plugins — just drag, drop, and edit.
 
 [![React](https://img.shields.io/badge/React-19-61DAFB?logo=react)](https://react.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.6-3178C6?logo=typescript)](https://typescriptlang.org)

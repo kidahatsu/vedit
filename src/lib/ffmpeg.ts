@@ -495,35 +495,26 @@ export async function reverseVideo(
         // We can't easily distinguish OOM from other errors, but safe to reset if reverse fails
         try {
             ff.terminate()
-        } catch (err) { /* ignore */ }
+        } catch { /* ignore */ }
         // Reset module-level variables (need to be accessible)
         // We can't strict reset 'ffmpeg' and 'loadPromise' here easily without moving them or using a resetting helper.
         // But we can just throw for now and realize the user needs to reload.
         // Actually, let's just let it throw. The alert in UI suggests "Try again" (which implies reload if it crashed?).
+        // Implicitly rely on the user reloading if it crashes hard.
         // The UI alert says: "The browser might have run out of memory. Try using a shorter clip..."
-
-        // I'll just refine the catch to be more robust about retrying video-only if audio failed, 
-        // but if THAT fails, it throws.
 
         console.warn('Retrying video only...', e)
         // ... existing retry logic ...
         await ff.deleteFile(outputName).catch(() => { })
 
-        try {
-            await ff.exec([
-                '-i', inputName,
-                '-ss', trimStart.toFixed(3),
-                '-to', trimEnd.toFixed(3),
-                '-vf', 'reverse',
-                ...getEncodingArgs(),
-                outputName
-            ])
-        } catch (finalError) {
-            // Now we definitely failed. 
-            // If we want to support resetting, we need to modify the file structure to export reset or access vars.
-            // Given the file structure, I'll implicitly rely on the user reloading if it crashes hard.
-            throw finalError
-        }
+        await ff.exec([
+            '-i', inputName,
+            '-ss', trimStart.toFixed(3),
+            '-to', trimEnd.toFixed(3),
+            '-vf', 'reverse',
+            ...getEncodingArgs(),
+            outputName
+        ])
     }
 
     onProgress?.(90, 'Finalizing...')

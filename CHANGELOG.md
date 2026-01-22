@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Antigravity Agent configuration (`.agent/`) with Skills, Workflows, and Rules.
+- Codebase audit workflow and session wrap-up workflow.
+
+### Fixed
+- Lint errors in `src/lib/ffmpeg.ts` (unused variables, redundant error handling).
+- Security vulnerability in `lodash` (via `npm audit fix`).
+
 ## [0.3.1] - 2026-01-13
 
 ### Fixed
