@@ -1,14 +1,130 @@
+/* ==========================================================================
+   Apple Studio Magnetic Timeline Styles (Dedicated Pro Timeline Section)
+   ========================================================================== */
+
 .container {
-    padding: var(--space-4);
-    background: var(--color-bg-secondary);
+    width: 100%;
+    background: rgba(14, 14, 20, 0.95);
+    backdrop-filter: blur(28px) saturate(180%);
+    -webkit-backdrop-filter: blur(28px) saturate(180%);
     border-top: 1px solid var(--color-border);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    user-select: none;
+    z-index: var(--z-sticky);
 }
 
-.timeline {
+/* Studio Timeline Toolbar */
+.toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 38px;
+    padding: 0 var(--space-4);
+    background: rgba(0, 0, 0, 0.4);
+    border-bottom: 1px solid var(--color-border);
+    gap: var(--space-2);
+}
+
+.toolGroup {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.divider {
+    width: 1px;
+    height: 18px;
+    background: var(--color-border);
+    margin: 0 4px;
+}
+
+.toolBtnActive {
+    background: rgba(255, 214, 10, 0.16) !important;
+    border-color: rgba(255, 214, 10, 0.5) !important;
+    color: var(--color-accent-warning) !important;
+}
+
+/* Clip Switcher Tabs */
+.clipTabs {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px var(--space-4);
+    background: rgba(0, 0, 0, 0.2);
+    border-bottom: 1px solid var(--color-border);
+    overflow-x: auto;
+}
+
+.clipTab {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 24px;
+    padding: 0 10px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    color: var(--color-text-secondary);
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all var(--transition-fast);
+}
+
+.clipTab:hover {
+    background: rgba(255, 255, 255, 0.07);
+    color: var(--color-text-primary);
+}
+
+.clipTabActive {
+    background: rgba(10, 132, 255, 0.14) !important;
+    border-color: var(--color-accent-primary) !important;
+    color: #ffffff !important;
+    font-weight: 600;
+}
+
+/* Time Ruler Header */
+.ruler {
     position: relative;
-    height: var(--timeline-height);
-    background: var(--color-bg-tertiary);
-    border-radius: var(--radius-lg);
+    height: 20px;
+    margin: 0 var(--space-4);
+    display: flex;
+    align-items: flex-end;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.rulerTick {
+    position: absolute;
+    bottom: 0;
+    width: 1px;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.rulerTickMajor {
+    height: 10px;
+    background: rgba(255, 255, 255, 0.4);
+}
+
+.rulerLabel {
+    position: absolute;
+    bottom: 10px;
+    transform: translateX(-50%);
+    font-family: var(--font-mono);
+    font-size: 9px;
+    color: var(--color-text-muted);
+}
+
+/* Timeline Track Stage */
+.timelineStage {
+    position: relative;
+    height: 68px;
+    padding: 8px var(--space-4) 10px;
+    background: rgba(0, 0, 0, 0.45);
     overflow: hidden;
 }
 
@@ -18,208 +134,148 @@
     align-items: center;
     justify-content: center;
     color: var(--color-text-muted);
-    font-size: var(--font-size-sm);
+    font-size: var(--font-size-xs);
+    font-weight: 500;
 }
 
-.track {
+.trackContainer {
     position: relative;
-    height: 60px;
-    margin: var(--space-4);
-    display: flex;
-    gap: var(--space-2);
-}
-
-.clip {
-    position: relative;
-    flex: 1;
-    min-width: 80px;
-    height: 100%;
-    background: linear-gradient(135deg, rgba(0, 212, 255, 0.2), rgba(255, 0, 170, 0.2));
-    border: 2px solid rgba(0, 212, 255, 0.5);
-    border-radius: var(--radius-md);
+    height: 52px;
+    width: 100%;
+    background: rgba(18, 18, 26, 0.8);
+    border: 1.5px solid rgba(10, 132, 255, 0.4);
+    border-radius: var(--radius-sm);
     overflow: hidden;
     cursor: pointer;
-    transition: all var(--transition-fast);
+    box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.6);
 }
 
-.clip:hover {
-    border-color: var(--color-accent-primary);
-}
-
-.clipSelected {
-    border-color: var(--color-accent-primary);
-    box-shadow: 0 0 0 2px rgba(0, 212, 255, 0.3);
-}
-
-.clipThumbnail {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    opacity: 0.7;
-}
-
-.clipName {
+.filmstrip {
     position: absolute;
-    bottom: var(--space-2);
-    left: var(--space-2);
-    right: var(--space-2);
-    font-size: var(--font-size-xs);
-    color: var(--color-text-primary);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+    inset: 0;
+    display: flex;
+    opacity: 0.75;
+    pointer-events: none;
+}
+
+.filmstripFrame {
+    height: 100%;
+    width: 80px;
+    object-fit: cover;
+    border-right: 1px solid rgba(0, 0, 0, 0.5);
+    flex-shrink: 0;
+}
+
+/* Audio Waveform Track Simulation */
+.waveformBar {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 16px;
+    background: linear-gradient(180deg, rgba(48, 209, 88, 0.15) 0%, rgba(48, 209, 88, 0.35) 100%);
+    border-top: 1px solid rgba(48, 209, 88, 0.3);
+    pointer-events: none;
+}
+
+/* Trim Overlays & Handles */
+.trimOverlay {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.75);
+    backdrop-filter: grayscale(100%);
+    pointer-events: none;
+    z-index: 10;
 }
 
 .trimHandle {
     position: absolute;
     top: 0;
     bottom: 0;
-    width: 8px;
-    background: var(--color-accent-primary);
+    width: 12px;
+    background: linear-gradient(180deg, #3399ff 0%, #0077ed 100%);
     cursor: ew-resize;
-    opacity: 0;
-    transition: opacity var(--transition-fast);
+    z-index: 14;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 10px rgba(0, 119, 237, 0.5);
+    transition: width var(--transition-fast), background var(--transition-fast);
 }
 
-.clip:hover .trimHandle {
-    opacity: 1;
+.trimHandle::after {
+    content: '';
+    width: 2px;
+    height: 20px;
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: 1px;
+}
+
+.trimHandle:hover {
+    width: 14px;
+    background: #0a84ff;
+    box-shadow: 0 0 14px rgba(10, 132, 255, 0.9);
 }
 
 .trimHandleLeft {
     left: 0;
-    border-radius: var(--radius-md) 0 0 var(--radius-md);
+    border-radius: var(--radius-sm) 0 0 var(--radius-sm);
 }
 
 .trimHandleRight {
     right: 0;
-    border-radius: 0 var(--radius-md) var(--radius-md) 0;
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
 }
 
-.trimOverlay {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.6);
-    pointer-events: none;
-}
-
-.trimOverlayLeft {
-    left: 0;
-}
-
-.trimOverlayRight {
-    right: 0;
-}
-
-.timecodes {
-    display: flex;
-    justify-content: space-between;
-    padding: 0 var(--space-4) var(--space-2);
-}
-
-.timecode {
-    font-family: var(--font-mono);
-    font-size: var(--font-size-xs);
-    color: var(--color-text-muted);
-}
-
-.trimInfo {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: var(--space-2);
-    margin-top: var(--space-3);
-    font-size: var(--font-size-sm);
-    color: var(--color-text-secondary);
-}
-
-.trimBadge {
-    display: inline-block;
-    padding: var(--space-1) var(--space-2);
-    background: var(--color-bg-glass);
-    border-radius: var(--radius-sm);
-    font-family: var(--font-mono);
-    margin: 0 var(--space-1);
-}
-
-.splitBadge {
-    display: inline-block;
-    padding: var(--space-1) var(--space-2);
-    background: rgba(255, 170, 0, 0.2);
-    border-radius: var(--radius-sm);
-    font-family: var(--font-mono);
-    color: var(--color-accent-warning);
-    margin: 0 var(--space-1);
-}
-
-.hint {
-    margin-left: var(--space-4);
-    color: var(--color-text-muted);
-    font-size: var(--font-size-xs);
-}
-
-.hint kbd {
-    display: inline-block;
-    padding: 0 var(--space-1);
-    background: var(--color-bg-glass);
-    border-radius: var(--radius-sm);
-    font-family: var(--font-mono);
-    font-size: var(--font-size-xs);
-}
-
-/* Split markers */
+/* Split Markers */
 .splitMarker {
     position: absolute;
     top: 0;
     bottom: 0;
     width: 3px;
-    background: var(--color-accent-warning);
+    background: #ffd60a;
     cursor: grab;
-    z-index: 10;
+    z-index: 16;
     transform: translateX(-50%);
-    transition: all var(--transition-fast);
+    box-shadow: 0 0 8px rgba(255, 214, 10, 0.6);
+    transition: width var(--transition-fast);
 }
 
 .splitMarker::before {
     content: '';
     position: absolute;
-    top: -4px;
+    top: -5px;
     left: 50%;
     transform: translateX(-50%);
     width: 0;
     height: 0;
-    border-left: 6px solid transparent;
-    border-right: 6px solid transparent;
-    border-top: 6px solid var(--color-accent-warning);
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 6px solid #ffd60a;
 }
 
 .splitMarker:hover {
-    background: var(--color-accent-secondary);
-    width: 5px;
+    background: #ffffff;
+    width: 4px;
+    box-shadow: 0 0 12px rgba(255, 255, 255, 0.9);
 }
 
 .splitMarker:hover::before {
-    border-top-color: var(--color-accent-secondary);
+    border-top-color: #ffffff;
 }
 
 .splitMarkerDragging {
-    background: var(--color-accent-secondary);
+    background: #ffffff;
     width: 4px;
     cursor: grabbing;
     z-index: 25;
-    box-shadow: 0 0 12px var(--color-accent-secondary);
+    box-shadow: 0 0 14px rgba(255, 255, 255, 1);
 }
 
-.splitMarkerDragging::before {
-    border-top-color: var(--color-accent-secondary);
-}
-
-/* Split mode styles */
-.clipSplitMode {
-    cursor: crosshair;
-    border-color: var(--color-accent-warning) !important;
-    box-shadow: 0 0 0 2px rgba(255, 170, 0, 0.3), inset 0 0 20px rgba(255, 170, 0, 0.1);
+/* Split Mode Interactive Styling */
+.trackSplitMode {
+    cursor: crosshair !important;
 }
 
 .splitCursor {
@@ -227,10 +283,11 @@
     top: 0;
     bottom: 0;
     width: 2px;
-    background: var(--color-accent-secondary);
+    background: #ffffff;
     pointer-events: none;
     z-index: 20;
     transform: translateX(-50%);
+    box-shadow: 0 0 8px rgba(255, 255, 255, 0.9);
 }
 
 .splitCursor::before {
@@ -241,55 +298,42 @@
     transform: translateX(-50%);
     width: 0;
     height: 0;
-    border-left: 8px solid transparent;
-    border-right: 8px solid transparent;
-    border-top: 8px solid var(--color-accent-secondary);
+    border-left: 6px solid transparent;
+    border-right: 6px solid transparent;
+    border-top: 6px solid #ffffff;
 }
 
 .splitCursorTime {
     position: absolute;
-    top: -28px;
+    top: -24px;
     left: 50%;
     transform: translateX(-50%);
-    background: var(--color-bg-glass);
-    backdrop-filter: blur(8px);
-    padding: var(--space-1) var(--space-2);
-    border-radius: var(--radius-sm);
+    background: rgba(14, 14, 20, 0.92);
+    backdrop-filter: blur(12px);
+    padding: 2px 6px;
+    border-radius: var(--radius-xs);
     font-family: var(--font-mono);
-    font-size: var(--font-size-xs);
-    color: var(--color-accent-secondary);
+    font-size: 10px;
+    font-weight: 600;
+    color: #ffffff;
     white-space: nowrap;
-    border: 1px solid var(--color-accent-secondary);
+    border: 1px solid var(--color-accent-warning);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
 }
 
-.splitModeBtn {
-    background: var(--color-bg-glass);
-    border: 1px solid var(--color-border);
-    padding: var(--space-2) var(--space-3);
-    border-radius: var(--radius-md);
-    color: var(--color-text-secondary);
-    cursor: pointer;
-    transition: all var(--transition-fast);
-    font-size: var(--font-size-sm);
-    margin-right: var(--space-3);
+.timecodeGroup {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    font-family: var(--font-mono);
+    font-size: 11px;
 }
 
-.splitModeBtn:hover {
-    background: var(--color-bg-secondary);
-    border-color: var(--color-accent-warning);
+.timecodeLabel {
+    color: var(--color-text-muted);
+}
+
+.timecodeValue {
     color: var(--color-text-primary);
-}
-
-.splitModeBtnActive {
-    background: rgba(255, 170, 0, 0.2);
-    border-color: var(--color-accent-warning);
-    color: var(--color-accent-warning);
-}
-
-.splitModeBtnActive:hover {
-    background: rgba(255, 170, 0, 0.3);
-}
-
-.trimInfoText {
-    color: var(--color-text-secondary);
+    font-weight: 600;
 }

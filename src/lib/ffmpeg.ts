@@ -28,10 +28,30 @@ export interface TransformOptions {
     muted?: boolean
     fadeIn?: number
     fadeOut?: number
+
+    // Color Grading options
+    brightness?: number
+    contrast?: number
+    saturation?: number
 }
 
 let ffmpeg: FFmpeg | null = null
 let loadPromise: Promise<FFmpeg> | null = null
+
+/**
+ * Cleanly terminate and reset the module-level FFmpeg instance
+ */
+export function resetFFmpegInstance(): void {
+    if (ffmpeg) {
+        try {
+            ffmpeg.terminate()
+        } catch {
+            // ignore termination errors
+        }
+    }
+    ffmpeg = null
+    loadPromise = null
+}
 
 /**
  * Get or initialize the FFmpeg instance
@@ -48,28 +68,34 @@ export async function getFFmpeg(
     }
 
     loadPromise = (async () => {
-        ffmpeg = new FFmpeg()
+        try {
+            const instance = new FFmpeg()
 
-        ffmpeg.on('log', ({ message }) => {
-            debug('FFmpeg', message)
-        })
+            instance.on('log', ({ message }) => {
+                debug('FFmpeg', message)
+            })
 
-        ffmpeg.on('progress', ({ progress, time }) => {
-            const percent = Math.round(progress * 100)
-            onProgress?.(percent, `Processing: ${percent}% (${Math.round(time / 1000000)}s)`)
-        })
+            instance.on('progress', ({ progress, time }) => {
+                const percent = Math.round(progress * 100)
+                onProgress?.(percent, `Processing: ${percent}% (${Math.round(time / 1000000)}s)`)
+            })
 
-        onProgress?.(5, 'Downloading FFmpeg core...')
+            onProgress?.(5, 'Downloading FFmpeg core...')
 
-        const { cdnBaseUrl, coreFile, wasmFile } = FFMPEG_CONFIG
+            const { cdnBaseUrl, coreFile, wasmFile } = FFMPEG_CONFIG
 
-        await ffmpeg.load({
-            coreURL: await toBlobURL(`${cdnBaseUrl}/${coreFile}`, 'text/javascript'),
-            wasmURL: await toBlobURL(`${cdnBaseUrl}/${wasmFile}`, 'application/wasm'),
-        })
+            await instance.load({
+                coreURL: await toBlobURL(`${cdnBaseUrl}/${coreFile}`, 'text/javascript'),
+                wasmURL: await toBlobURL(`${cdnBaseUrl}/${wasmFile}`, 'application/wasm'),
+            })
 
-        onProgress?.(15, 'FFmpeg ready')
-        return ffmpeg
+            onProgress?.(15, 'FFmpeg ready')
+            ffmpeg = instance
+            return instance
+        } catch (err) {
+            resetFFmpegInstance()
+            throw err
+        }
     })()
 
     return loadPromise
@@ -89,28 +115,29 @@ export async function trimVideo(
     const inputName = 'input' + getFileExtension(file.name)
     const outputName = 'output.mp4'
 
-    onProgress?.(20, 'Loading video file...')
-    await ff.writeFile(inputName, await fetchFile(file))
+    try {
+        onProgress?.(20, 'Loading video file...')
+        await ff.writeFile(inputName, await fetchFile(file))
 
-    onProgress?.(30, 'Trimming video...')
+        onProgress?.(30, 'Trimming video...')
 
-    await ff.exec([
-        '-i', inputName,
-        '-ss', startTime.toFixed(3),
-        '-to', endTime.toFixed(3),
-        ...getEncodingArgs(),
-        outputName
-    ])
+        await ff.exec([
+            '-i', inputName,
+            '-ss', startTime.toFixed(3),
+            '-to', endTime.toFixed(3),
+            ...getEncodingArgs(),
+            outputName
+        ])
 
-    onProgress?.(90, 'Finalizing...')
-    const data = await ff.readFile(outputName)
+        onProgress?.(90, 'Finalizing...')
+        const data = await ff.readFile(outputName)
 
-    // Cleanup
-    await ff.deleteFile(inputName)
-    await ff.deleteFile(outputName)
-
-    onProgress?.(100, 'Complete!')
-    return new Blob([data as BlobPart], { type: 'video/mp4' })
+        onProgress?.(100, 'Complete!')
+        return new Blob([data as Uint8Array], { type: 'video/mp4' })
+    } finally {
+        await ff.deleteFile(inputName).catch(() => { })
+        await ff.deleteFile(outputName).catch(() => { })
+    }
 }
 
 /**
@@ -123,58 +150,64 @@ export async function mergeVideos(
     const ff = await getFFmpeg(onProgress)
 
     const trimmedFiles: string[] = []
+    const inputFiles: string[] = []
     const progressPerFile = 60 / files.length
+    const outputName = 'merged.mp4'
 
-    // First, trim each file to its specified range
-    for (let i = 0; i < files.length; i++) {
-        const { file, trimStart, trimEnd } = files[i]
-        const inputName = `input_${i}${getFileExtension(file.name)}`
-        const trimmedName = `trimmed_${i}.mp4`
+    try {
+        // First, trim each file to its specified range
+        for (let i = 0; i < files.length; i++) {
+            const { file, trimStart, trimEnd } = files[i]
+            const inputName = `input_${i}${getFileExtension(file.name)}`
+            const trimmedName = `trimmed_${i}.mp4`
+            inputFiles.push(inputName)
 
-        const baseProgress = 20 + i * progressPerFile
-        onProgress?.(baseProgress, `Processing clip ${i + 1}/${files.length}...`)
+            const baseProgress = 20 + i * progressPerFile
+            onProgress?.(baseProgress, `Processing clip ${i + 1}/${files.length}...`)
 
-        await ff.writeFile(inputName, await fetchFile(file))
+            await ff.writeFile(inputName, await fetchFile(file))
 
+            await ff.exec([
+                '-i', inputName,
+                '-ss', trimStart.toFixed(3),
+                '-to', trimEnd.toFixed(3),
+                ...getEncodingArgs(),
+                trimmedName
+            ])
+
+            trimmedFiles.push(trimmedName)
+            await ff.deleteFile(inputName).catch(() => { })
+        }
+
+        // Create concat file
+        onProgress?.(80, 'Merging clips...')
+        const concatContent = trimmedFiles.map(f => `file '${f}'`).join('\n')
+        await ff.writeFile('concat.txt', concatContent)
+
+        // Merge
         await ff.exec([
-            '-i', inputName,
-            '-ss', trimStart.toFixed(3),
-            '-to', trimEnd.toFixed(3),
-            ...getEncodingArgs(),
-            trimmedName
+            '-f', 'concat',
+            '-safe', '0',
+            '-i', 'concat.txt',
+            '-c', 'copy',
+            outputName
         ])
 
-        trimmedFiles.push(trimmedName)
-        await ff.deleteFile(inputName)
+        onProgress?.(95, 'Finalizing...')
+        const data = await ff.readFile(outputName)
+
+        onProgress?.(100, 'Complete!')
+        return new Blob([data as Uint8Array], { type: 'video/mp4' })
+    } finally {
+        for (const f of inputFiles) {
+            await ff.deleteFile(f).catch(() => { })
+        }
+        for (const f of trimmedFiles) {
+            await ff.deleteFile(f).catch(() => { })
+        }
+        await ff.deleteFile('concat.txt').catch(() => { })
+        await ff.deleteFile(outputName).catch(() => { })
     }
-
-    // Create concat file
-    onProgress?.(80, 'Merging clips...')
-    const concatContent = trimmedFiles.map(f => `file '${f}'`).join('\n')
-    await ff.writeFile('concat.txt', concatContent)
-
-    // Merge
-    const outputName = 'merged.mp4'
-    await ff.exec([
-        '-f', 'concat',
-        '-safe', '0',
-        '-i', 'concat.txt',
-        '-c', 'copy',
-        outputName
-    ])
-
-    onProgress?.(95, 'Finalizing...')
-    const data = await ff.readFile(outputName)
-
-    // Cleanup
-    for (const f of trimmedFiles) {
-        await ff.deleteFile(f)
-    }
-    await ff.deleteFile('concat.txt')
-    await ff.deleteFile(outputName)
-
-    onProgress?.(100, 'Complete!')
-    return new Blob([data as BlobPart], { type: 'video/mp4' })
 }
 
 /**
@@ -274,23 +307,42 @@ async function splitVideoFFmpeg(
  * Order: speed -> rotation -> flip -> crop -> scale/pad for aspect ratio
  * Note: Speed is handled via setpts for video, atempo for audio separately
  */
-export function buildFilterChain(transform: TransformOptions): string[] {
+export function buildFilterChain(options: TransformOptions): string[] {
     const filters: string[] = []
+    const {
+        crop,
+        rotation,
+        flipH,
+        flipV,
+        aspectRatio,
+        targetWidth,
+        targetHeight,
+        speed,
+        sourceWidth,
+        sourceHeight
+    } = options
 
-    const { aspectRatio, crop, rotation, flipH, flipV, speed, sourceWidth, sourceHeight, targetWidth, targetHeight } = transform
+    // 1. Crop (MUST be applied first in original source coordinate space before rotation/transpose changes dimensions)
+    if (crop && (crop.x !== 0 || crop.y !== 0 || crop.width !== 1 || crop.height !== 1)) {
+        if (sourceWidth && sourceHeight) {
+            const cropW = Math.max(2, Math.floor((crop.width * sourceWidth) / 2) * 2)
+            const cropH = Math.max(2, Math.floor((crop.height * sourceHeight) / 2) * 2)
+            const cropX = Math.floor((crop.x * sourceWidth) / 2) * 2
+            const cropY = Math.floor((crop.y * sourceHeight) / 2) * 2
+            filters.push(`crop=${cropW}:${cropH}:${cropX}:${cropY}`)
+        } else {
+            // Use expressions with input dimensions rounded to even integers
+            filters.push(`crop=trunc(iw*${crop.width}/2)*2:trunc(ih*${crop.height}/2)*2:trunc(iw*${crop.x}/2)*2:trunc(ih*${crop.y}/2)*2`)
+        }
+    }
 
-    // 1. Speed (video only - audio handled separately)
+    // 2. Speed (video only - audio handled separately)
     if (speed && speed !== 1) {
-        // setpts=PTS/speed for faster, PTS*factor for slower
         const ptsFactor = 1 / speed
         filters.push(`setpts=${ptsFactor.toFixed(4)}*PTS`)
     }
 
-    // 2. Rotation (transpose filter)
-    // transpose=0: 90° CCW + vertical flip
-    // transpose=1: 90° CW
-    // transpose=2: 90° CCW
-    // transpose=3: 90° CW + vertical flip
+    // 3. Rotation (transpose filter)
     if (rotation === 90) {
         filters.push('transpose=1')
     } else if (rotation === 180) {
@@ -299,7 +351,7 @@ export function buildFilterChain(transform: TransformOptions): string[] {
         filters.push('transpose=2')
     }
 
-    // 3. Flip
+    // 4. Flip
     if (flipH) {
         filters.push('hflip')
     }
@@ -307,35 +359,24 @@ export function buildFilterChain(transform: TransformOptions): string[] {
         filters.push('vflip')
     }
 
-    // 4. Crop (using normalized values)
-    if (crop && (crop.x !== 0 || crop.y !== 0 || crop.width !== 1 || crop.height !== 1)) {
-        // Need source dimensions to calculate absolute crop values
-        // Use 'iw' and 'ih' for input width/height if not provided
-        if (sourceWidth && sourceHeight) {
-            const cropW = Math.round(crop.width * sourceWidth)
-            const cropH = Math.round(crop.height * sourceHeight)
-            const cropX = Math.round(crop.x * sourceWidth)
-            const cropY = Math.round(crop.y * sourceHeight)
-            filters.push(`crop=${cropW}:${cropH}:${cropX}:${cropY}`)
-        } else {
-            // Use expressions with input dimensions
-            filters.push(`crop=iw*${crop.width}:ih*${crop.height}:iw*${crop.x}:ih*${crop.y}`)
-        }
-    }
-
     // 5. Target resolution scaling (from export preset) OR aspect ratio with letterbox/pillarbox
     if (targetWidth && targetHeight) {
-        // Scale to specific resolution with letterbox/pillarbox padding
         filters.push(
             `scale=${targetWidth}:${targetHeight}:force_original_aspect_ratio=decrease`,
             `pad=${targetWidth}:${targetHeight}:(ow-iw)/2:(oh-ih)/2:black`
         )
-    } else if (aspectRatio && aspectRatio !== 'original') {
-        const dims = ASPECT_RATIO_DIMENSIONS[aspectRatio]
+    } else if (aspectRatio && aspectRatio !== 'original' && aspectRatio in ASPECT_RATIO_DIMENSIONS) {
+        const dims = ASPECT_RATIO_DIMENSIONS[aspectRatio as keyof typeof ASPECT_RATIO_DIMENSIONS]
         filters.push(
             `scale=${dims.width}:${dims.height}:force_original_aspect_ratio=decrease`,
             `pad=${dims.width}:${dims.height}:(ow-iw)/2:(oh-ih)/2:black`
         )
+    }
+
+    // 6. Color Grading (Brightness, Contrast, Saturation) via eq filter
+    const { brightness = 0, contrast = 1, saturation = 1 } = options
+    if (brightness !== 0 || contrast !== 1 || saturation !== 1) {
+        filters.push(`eq=brightness=${brightness.toFixed(3)}:contrast=${contrast.toFixed(3)}:saturation=${saturation.toFixed(3)}`)
     }
 
     return filters
@@ -355,7 +396,6 @@ export function buildAudioFilterChain(transform: TransformOptions, duration: num
     }
 
     // 2. Volume (0-100 -> 0-1 multiplier) - 100 is default (1.0)
-    // Allow up to 200% (2.0)
     if (volume !== undefined && volume !== 100) {
         const vol = Math.max(0, volume) / 100
         filters.push(`volume=${vol}`)
@@ -366,17 +406,17 @@ export function buildAudioFilterChain(transform: TransformOptions, duration: num
         filters.push(`atempo=${speed}`)
     }
 
-    // 4. Fade In
-    if (fadeIn && fadeIn > 0) {
-        filters.push(`afade=t=in:st=0:d=${fadeIn}`)
+    // 4. Fade In & Fade Out (bounded so sum <= duration)
+    const effectiveFadeIn = fadeIn && fadeIn > 0 ? Math.min(fadeIn, duration) : 0
+    const effectiveFadeOut = fadeOut && fadeOut > 0 ? Math.min(fadeOut, duration - effectiveFadeIn) : 0
+
+    if (effectiveFadeIn > 0) {
+        filters.push(`afade=t=in:st=0:d=${effectiveFadeIn}`)
     }
 
-    // 5. Fade Out
-    if (fadeOut && fadeOut > 0) {
-        // Start time for fade out = total duration - fade duration
-        // We need to ensure start time is not negative
-        const startTime = Math.max(0, duration - fadeOut)
-        filters.push(`afade=t=out:st=${startTime.toFixed(3)}:d=${fadeOut}`)
+    if (effectiveFadeOut > 0) {
+        const startTime = Math.max(0, duration - effectiveFadeOut)
+        filters.push(`afade=t=out:st=${startTime.toFixed(3)}:d=${effectiveFadeOut}`)
     }
 
     return filters
@@ -397,53 +437,54 @@ export async function transformVideo(
     const inputName = 'input' + getFileExtension(file.name)
     const outputName = 'output.mp4'
 
-    onProgress?.(20, 'Loading video file...')
-    await ff.writeFile(inputName, await fetchFile(file))
+    try {
+        onProgress?.(20, 'Loading video file...')
+        await ff.writeFile(inputName, await fetchFile(file))
 
-    onProgress?.(30, 'Applying transforms...')
+        onProgress?.(30, 'Applying transforms...')
 
-    // Calculate duration for audio fades (adjusting for speed)
-    let duration = trimEnd - trimStart
-    if (transform.speed && transform.speed !== 1) {
-        duration = duration / transform.speed
+        // Calculate duration for audio fades (adjusting for speed)
+        let duration = trimEnd - trimStart
+        if (transform.speed && transform.speed !== 1) {
+            duration = duration / transform.speed
+        }
+
+        // Build the FFmpeg command
+        const args = [
+            '-i', inputName,
+            '-ss', trimStart.toFixed(3),
+            '-to', trimEnd.toFixed(3),
+        ]
+
+        // Add video filter chain if there are transforms
+        const filters = buildFilterChain(transform)
+        if (filters.length > 0) {
+            args.push('-vf', filters.join(','))
+        }
+
+        // Add audio filter chain
+        const audioFilters = buildAudioFilterChain(transform, duration)
+        if (audioFilters.length > 0) {
+            args.push('-af', audioFilters.join(','))
+        }
+
+        // Output settings
+        args.push(
+            ...getEncodingArgs(),
+            outputName
+        )
+
+        await ff.exec(args)
+
+        onProgress?.(90, 'Finalizing...')
+        const data = await ff.readFile(outputName)
+
+        onProgress?.(100, 'Complete!')
+        return new Blob([data as Uint8Array], { type: 'video/mp4' })
+    } finally {
+        await ff.deleteFile(inputName).catch(() => { })
+        await ff.deleteFile(outputName).catch(() => { })
     }
-
-    // Build the FFmpeg command
-    const args = [
-        '-i', inputName,
-        '-ss', trimStart.toFixed(3),
-        '-to', trimEnd.toFixed(3),
-    ]
-
-    // Add video filter chain if there are transforms
-    const filters = buildFilterChain(transform)
-    if (filters.length > 0) {
-        args.push('-vf', filters.join(','))
-    }
-
-    // Add audio filter chain
-    const audioFilters = buildAudioFilterChain(transform, duration)
-    if (audioFilters.length > 0) {
-        args.push('-af', audioFilters.join(','))
-    }
-
-    // Output settings
-    args.push(
-        ...getEncodingArgs(),
-        outputName
-    )
-
-    await ff.exec(args)
-
-    onProgress?.(90, 'Finalizing...')
-    const data = await ff.readFile(outputName)
-
-    // Cleanup
-    await ff.deleteFile(inputName)
-    await ff.deleteFile(outputName)
-
-    onProgress?.(100, 'Complete!')
-    return new Blob([data as BlobPart], { type: 'video/mp4' })
 }
 
 /**
@@ -461,71 +502,51 @@ export async function reverseVideo(
     const inputName = 'input' + getFileExtension(file.name)
     const outputName = 'output.mp4'
 
-    onProgress?.(20, 'Loading video file...')
-    await ff.writeFile(inputName, await fetchFile(file))
-
-    onProgress?.(30, 'Reversing video...')
-
-    // Strategy: Try to reverse both video and audio.
-    // If input has no audio, FFmpeg might complain about -af areverse if we insist on mapping.
-    // But allowing FFmpeg to auto-select streams is usually safe.
-    // However, -af areverse with no audio stream causes an error.
-    // To be safe, we can try to detect audio or just attempt it.
-    // For MVP robustness, we'll try with audio, and if it fails quickly, fallback to video only?
-    // Attempting complex filter with conditional mapping is hard without probing.
-    // We'll trust that most clips have audio or FFmpeg handles empty -af gracefully in recent versions?
-    // Actually, let's use a robust command that maps explicitly.
-    // For now, simpler: just -vf reverse -af areverse.
-    // If it fails, we catch and retry without -af.
-
     try {
-        await ff.exec([
-            '-i', inputName,
-            '-ss', trimStart.toFixed(3),
-            '-to', trimEnd.toFixed(3),
-            '-vf', 'reverse',
-            '-af', 'areverse',
-            ...getEncodingArgs(),
-            outputName
-        ])
-    } catch (e) {
-        console.warn('Reverse with audio failed/crashed:', e)
+        onProgress?.(20, 'Loading video file...')
+        await ff.writeFile(inputName, await fetchFile(file))
 
-        // If it was a crash (OOM), we should reset the instance
-        // We can't easily distinguish OOM from other errors, but safe to reset if reverse fails
+        onProgress?.(30, 'Reversing video...')
+
         try {
-            ff.terminate()
-        } catch { /* ignore */ }
-        // Reset module-level variables (need to be accessible)
-        // We can't strict reset 'ffmpeg' and 'loadPromise' here easily without moving them or using a resetting helper.
-        // But we can just throw for now and realize the user needs to reload.
-        // Actually, let's just let it throw. The alert in UI suggests "Try again" (which implies reload if it crashed?).
-        // Implicitly rely on the user reloading if it crashes hard.
-        // The UI alert says: "The browser might have run out of memory. Try using a shorter clip..."
+            await ff.exec([
+                '-i', inputName,
+                '-ss', trimStart.toFixed(3),
+                '-to', trimEnd.toFixed(3),
+                '-vf', 'reverse',
+                '-af', 'areverse',
+                ...getEncodingArgs(),
+                outputName
+            ])
+        } catch (e) {
+            warn('FFmpeg', 'Reverse with audio failed, retrying video only:', e)
+            await ff.deleteFile(outputName).catch(() => { })
 
-        console.warn('Retrying video only...', e)
-        // ... existing retry logic ...
-        await ff.deleteFile(outputName).catch(() => { })
+            await ff.exec([
+                '-i', inputName,
+                '-ss', trimStart.toFixed(3),
+                '-to', trimEnd.toFixed(3),
+                '-vf', 'reverse',
+                ...getEncodingArgs(),
+                outputName
+            ])
+        }
 
-        await ff.exec([
-            '-i', inputName,
-            '-ss', trimStart.toFixed(3),
-            '-to', trimEnd.toFixed(3),
-            '-vf', 'reverse',
-            ...getEncodingArgs(),
-            outputName
-        ])
+        onProgress?.(90, 'Finalizing...')
+        const data = await ff.readFile(outputName)
+
+        onProgress?.(100, 'Complete!')
+        return new Blob([data as Uint8Array], { type: 'video/mp4' })
+    } catch (err) {
+        // If operation failed catastrophically, reset FFmpeg instance to prevent deadlock
+        resetFFmpegInstance()
+        throw err
+    } finally {
+        if (ffmpeg) {
+            await ffmpeg.deleteFile(inputName).catch(() => { })
+            await ffmpeg.deleteFile(outputName).catch(() => { })
+        }
     }
-
-    onProgress?.(90, 'Finalizing...')
-    const data = await ff.readFile(outputName)
-
-    // Cleanup
-    await ff.deleteFile(inputName)
-    await ff.deleteFile(outputName)
-
-    onProgress?.(100, 'Complete!')
-    return new Blob([data as BlobPart], { type: 'video/mp4' })
 }
 
 export async function extractFrame(
@@ -533,17 +554,17 @@ export async function extractFrame(
     time: number,
     onProgress?: (progress: number, message: string) => void
 ): Promise<Blob> {
-    const ffmpeg = await getFFmpeg(onProgress)
+    const ffmpegInstance = await getFFmpeg(onProgress)
     const inputName = 'input' + getFileExtension(file.name)
-    const outputName = 'frame.webp' // Using WebP for better stability in WASM
+    const outputName = 'frame.webp'
 
-    console.log(`[FFmpeg] Extracting frame at ${time.toFixed(3)}s as WebP (Size: ${(file.size / 1024 / 1024).toFixed(2)} MB)`)
+    debug('FFmpeg', `Extracting frame at ${time.toFixed(3)}s as WebP (Size: ${(file.size / 1024 / 1024).toFixed(2)} MB)`)
 
     try {
-        await ffmpeg.writeFile(inputName, await fetchFile(file))
+        await ffmpegInstance.writeFile(inputName, await fetchFile(file))
 
         try {
-            await ffmpeg.exec([
+            await ffmpegInstance.exec([
                 '-ss', time.toFixed(3),
                 '-i', inputName,
                 '-frames:v', '1',
@@ -556,26 +577,20 @@ export async function extractFrame(
                 outputName
             ])
         } catch (execError: unknown) {
-            // Check if file exists anyway - some WASM builds abort on exit but finish the task
-            const stats = await ffmpeg.listDir('/')
+            const stats = await ffmpegInstance.listDir('/')
             const exists = stats.some(f => f.name === outputName)
             if (exists) {
-                console.warn('[FFmpeg] Ignored Aborted() exit - output file found.')
+                warn('FFmpeg', 'Ignored Aborted() exit - output file found.')
             } else {
                 throw execError
             }
         }
 
-        const data = await ffmpeg.readFile(outputName)
+        const data = await ffmpegInstance.readFile(outputName)
         return new Blob([data as Uint8Array], { type: 'image/webp' })
-    } catch (error) {
-        console.error('[FFmpeg] extractFrame error:', error)
-        throw error
     } finally {
-        try {
-            await ffmpeg.deleteFile(inputName).catch(() => { })
-            await ffmpeg.deleteFile(outputName).catch(() => { })
-        } catch { /* ignore cleanup errors */ }
+        await ffmpegInstance.deleteFile(inputName).catch(() => { })
+        await ffmpegInstance.deleteFile(outputName).catch(() => { })
     }
 }
 
@@ -585,28 +600,32 @@ export async function extractAudio(
     end: number,
     onProgress?: (progress: number, message: string) => void
 ): Promise<Blob> {
-    const ffmpeg = await getFFmpeg(onProgress)
-    const { getFileExtension } = await import('./ffmpeg/config')
-    const inputName = 'input' + getFileExtension(file.name)
+    const ffmpegInstance = await getFFmpeg(onProgress)
+    const { getFileExtension: getExt } = await import('./ffmpeg/config')
+    const inputName = 'input' + getExt(file.name)
     const outputName = 'audio.mp3'
 
     try {
-        await ffmpeg.writeFile(inputName, await fetchFile(file))
+        await ffmpegInstance.writeFile(inputName, await fetchFile(file))
 
-        await ffmpeg.exec([
-            '-i', inputName,
-            '-ss', start.toFixed(3),
-            '-to', end.toFixed(3),
-            '-q:a', '0',
-            '-map', 'a',
-            outputName
-        ])
+        try {
+            await ffmpegInstance.exec([
+                '-i', inputName,
+                '-ss', start.toFixed(3),
+                '-to', end.toFixed(3),
+                '-q:a', '0',
+                '-map', 'a',
+                outputName
+            ])
 
-        const data = await ffmpeg.readFile(outputName)
-        return new Blob([data as Uint8Array], { type: 'audio/mpeg' })
+            const data = await ffmpegInstance.readFile(outputName)
+            return new Blob([data as Uint8Array], { type: 'audio/mpeg' })
+        } catch {
+            throw new Error('No audio track found in video or audio stream could not be extracted.')
+        }
     } finally {
-        await ffmpeg.deleteFile(inputName)
-        await ffmpeg.deleteFile(outputName)
+        await ffmpegInstance.deleteFile(inputName).catch(() => { })
+        await ffmpegInstance.deleteFile(outputName).catch(() => { })
     }
 }
 
@@ -616,15 +635,15 @@ export async function removeAudio(
     end: number,
     onProgress?: (progress: number, message: string) => void
 ): Promise<Blob> {
-    const ffmpeg = await getFFmpeg(onProgress)
-    const { getFileExtension } = await import('./ffmpeg/config')
-    const inputName = 'input' + getFileExtension(file.name)
+    const ffmpegInstance = await getFFmpeg(onProgress)
+    const { getFileExtension: getExt } = await import('./ffmpeg/config')
+    const inputName = 'input' + getExt(file.name)
     const outputName = 'video_no_audio.mp4'
 
     try {
-        await ffmpeg.writeFile(inputName, await fetchFile(file))
+        await ffmpegInstance.writeFile(inputName, await fetchFile(file))
 
-        await ffmpeg.exec([
+        await ffmpegInstance.exec([
             '-i', inputName,
             '-ss', start.toFixed(3),
             '-to', end.toFixed(3),
@@ -633,11 +652,11 @@ export async function removeAudio(
             outputName
         ])
 
-        const data = await ffmpeg.readFile(outputName)
+        const data = await ffmpegInstance.readFile(outputName)
         return new Blob([data as Uint8Array], { type: 'video/mp4' })
     } finally {
-        await ffmpeg.deleteFile(inputName)
-        await ffmpeg.deleteFile(outputName)
+        await ffmpegInstance.deleteFile(inputName).catch(() => { })
+        await ffmpegInstance.deleteFile(outputName).catch(() => { })
     }
 }
 
@@ -645,26 +664,22 @@ export async function probeVideo(
     file: File,
     onProgress?: (progress: number, message: string) => void
 ): Promise<{ codec_name?: string; width?: number; height?: number }> {
-    const ffmpeg = await getFFmpeg(onProgress)
-    const { getFileExtension } = await import('./ffmpeg/config')
-    const inputName = 'probe_input' + getFileExtension(file.name)
+    const ffmpegInstance = await getFFmpeg(onProgress)
+    const { getFileExtension: getExt } = await import('./ffmpeg/config')
+    const inputName = 'probe_input' + getExt(file.name)
+
+    let output = ''
+    const logHandler = ({ message }: { message: string }) => {
+        output += message + '\n'
+    }
 
     try {
-        await ffmpeg.writeFile(inputName, await fetchFile(file))
+        await ffmpegInstance.writeFile(inputName, await fetchFile(file))
+        ffmpegInstance.on('log', logHandler)
 
-        let output = ''
-        const logHandler = ({ message }: { message: string }) => {
-            output += message + '\n'
-        }
-        ffmpeg.on('log', logHandler)
+        // FFmpeg without output file exits with code 1 after logging stream details
+        await ffmpegInstance.exec(['-i', inputName]).catch(() => { })
 
-        // Use ffmpeg to get info. ffprobe is not typically included in the standard @ffmpeg/ffmpeg bundle
-        await ffmpeg.exec(['-i', inputName])
-
-        ffmpeg.off('log', logHandler)
-
-        // Find codec_name, width, height from logs
-        // Example: Stream #0:0(und): Video: h264 (High) (avc1 / 0x31637661), yuv420p, 1920x1080...
         const videoStreamMatch = output.match(/Stream #\d:\d.*Video: ([^, ]+).* (\d+)x(\d+)/)
         if (videoStreamMatch) {
             return {
@@ -674,12 +689,9 @@ export async function probeVideo(
             }
         }
         return {}
-    } catch (error) {
-        console.warn('[FFmpeg] Probe failed (this is expected for info-only runs):', error)
-        // Re-parse output if exec threw but captured logs
-        return {}
     } finally {
-        await ffmpeg.deleteFile(inputName).catch(() => { })
+        ffmpegInstance.off('log', logHandler)
+        await ffmpegInstance.deleteFile(inputName).catch(() => { })
     }
 }
 

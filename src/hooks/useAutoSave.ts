@@ -4,7 +4,7 @@
  */
 
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { useEditorStore } from '../store/editorStore'
+import { useEditorStore, useHistoryStore } from '../store/editorStore'
 import { saveProject, loadProject, isStorageAvailable } from '../lib/storage'
 
 /** Time to wait before auto-saving after changes (ms) */
@@ -88,27 +88,20 @@ export function useAutoSave(): UseAutoSaveReturn {
                 if (!mounted || hasLoadedRef.current) return
 
                 if (saved && saved.clips.length > 0) {
-                    // Use direct store access to restore state
-                    const store = useEditorStore.getState()
+                    const historyStore = useHistoryStore.getState()
 
-                    // Clear existing clips before loading to be safe
-                    // This prevents duplicates if something else added clips
-                    // But we don't have a clearClips action exposed via stableActions... 
-                    // We can inspect store first. 
-                    if (store.clips.length > 0) {
-                        console.warn('[AutoSave] Store not empty on load, skipping restoration to avoid duplicates')
+                    // If store already has clips, skip restoration to avoid collision
+                    if (historyStore.clips.length > 0) {
                         hasLoadedRef.current = true
                         return
                     }
 
-                    // Add clips one by one to restore
-                    for (const clip of saved.clips) {
-                        store.addClip(clip)
-                    }
-                    // Restore selection
-                    if (saved.selectedClipId) {
-                        store.selectClip(saved.selectedClipId)
-                    }
+                    // Restore state directly without recording fake undo steps
+                    useHistoryStore.setState({
+                        clips: saved.clips,
+                        selectedClipId: saved.selectedClipId,
+                    })
+                    useHistoryStore.temporal.getState().clear()
                 }
                 hasLoadedRef.current = true
             } catch (err) {

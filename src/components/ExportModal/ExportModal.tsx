@@ -4,6 +4,8 @@ import { useExportStore } from '../../store/exportStore'
 import { EXPORT_PRESETS, getDurationWarning, type ExportPreset } from '../../store/exportPresets'
 import styles from './ExportModal.module.css'
 
+export type ExportMode = 'trim' | 'merge' | 'split'
+
 interface ExportModalProps {
     isOpen: boolean
     onClose: () => void
@@ -11,8 +13,10 @@ interface ExportModalProps {
     videoDuration?: number
     /** Callback when export should start with selected preset */
     onStartExport?: (preset: ExportPreset) => void
-    /** If true, skip preset selection and go directly to progress (legacy mode) */
+    /** If true, skip preset selection and go directly to progress */
     skipPresetSelection?: boolean
+    /** Type of export operation */
+    exportMode?: ExportMode
 }
 
 const iconMap = {
@@ -28,23 +32,37 @@ export function ExportModal({
     videoDuration = 0,
     onStartExport,
     skipPresetSelection = false,
+    exportMode = 'trim',
 }: ExportModalProps) {
     const { status, progress, message, outputUrl, error, reset } = useExportStore()
     const [selectedPresetId, setSelectedPresetId] = useState('custom')
+    const isProcessing = status === 'processing' || status === 'loading-ffmpeg'
 
-    // Reset selection when modal opens
+    // Reset selection when modal opens and listen for Escape key
     useEffect(() => {
         if (isOpen) {
             setSelectedPresetId('custom')
         }
-    }, [isOpen])
+
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape' && !isProcessing) {
+                reset()
+                onClose()
+            }
+        }
+
+        if (isOpen) {
+            window.addEventListener('keydown', handleKeyDown)
+            return () => window.removeEventListener('keydown', handleKeyDown)
+        }
+    }, [isOpen, isProcessing, onClose, reset])
 
     if (!isOpen) return null
 
     const selectedPreset = EXPORT_PRESETS.find((p) => p.id === selectedPresetId)!
     const durationWarning = getDurationWarning(selectedPreset, videoDuration)
-    const showPresetSelection = status === 'idle' && !skipPresetSelection
-    const isProcessing = status === 'processing' || status === 'loading-ffmpeg'
+    const shouldSkipPresets = skipPresetSelection || exportMode === 'split' || exportMode === 'merge'
+    const showPresetSelection = status === 'idle' && !shouldSkipPresets
 
     const handleClose = () => {
         if (!isProcessing) {
@@ -70,6 +88,22 @@ export function ExportModal({
         }
     }
 
+    const modalTitle = showPresetSelection
+        ? 'Export Settings'
+        : status === 'complete'
+            ? exportMode === 'split'
+                ? 'Split Export Complete'
+                : exportMode === 'merge'
+                    ? 'Merge Complete'
+                    : 'Export Complete'
+            : status === 'error'
+                ? 'Export Failed'
+                : exportMode === 'split'
+                    ? 'Exporting Split Video Segments...'
+                    : exportMode === 'merge'
+                        ? 'Merging Timeline Clips...'
+                        : 'Exporting Video...'
+
     return (
         <div
             className={styles.overlay}
@@ -85,9 +119,7 @@ export function ExportModal({
             >
                 <div className={styles.header}>
                     <h2 id="export-modal-title" className={styles.title}>
-                        {showPresetSelection ? 'Export Settings' :
-                            status === 'complete' ? 'Export Complete' :
-                                status === 'error' ? 'Export Failed' : 'Exporting...'}
+                        {modalTitle}
                     </h2>
                     {!isProcessing && (
                         <button
@@ -104,7 +136,9 @@ export function ExportModal({
                     {/* Preset Selection */}
                     {showPresetSelection && (
                         <>
-                            <p className={styles.subtitle}>Choose export format</p>
+                            <p className={styles.subtitle}>
+                                Choose an export preset or keep current studio workspace framing
+                            </p>
                             <div className={styles.presetGrid}>
                                 {EXPORT_PRESETS.map((preset) => {
                                     const Icon = iconMap[preset.icon]
@@ -128,16 +162,18 @@ export function ExportModal({
                             {/* Preset Info */}
                             <div className={styles.presetInfo}>
                                 <div className={styles.infoRow}>
-                                    <span className={styles.infoLabel}>Resolution</span>
+                                    <span className={styles.infoLabel}>Framing & Resolution</span>
                                     <span className={styles.infoValue}>
-                                        {selectedPreset.resolution.width === 0
-                                            ? 'Original'
-                                            : `${selectedPreset.resolution.width} × ${selectedPreset.resolution.height}`}
+                                        {selectedPreset.id === 'custom'
+                                            ? 'Current Workspace Settings (Live Framing & Grading)'
+                                            : `${selectedPreset.resolution.width} × ${selectedPreset.resolution.height} (${selectedPreset.aspectRatio})`}
                                     </span>
                                 </div>
                                 <div className={styles.infoRow}>
-                                    <span className={styles.infoLabel}>Aspect Ratio</span>
-                                    <span className={styles.infoValue}>{selectedPreset.aspectRatio}</span>
+                                    <span className={styles.infoLabel}>Target Aspect Ratio</span>
+                                    <span className={styles.infoValue}>
+                                        {selectedPreset.id === 'custom' ? 'Active Clip Aspect Ratio' : selectedPreset.aspectRatio}
+                                    </span>
                                 </div>
                                 {selectedPreset.maxDuration && (
                                     <div className={styles.infoRow}>
@@ -163,7 +199,7 @@ export function ExportModal({
                                 </button>
                                 <button className="btn btn-primary" onClick={handleStartExport}>
                                     <Download size={16} />
-                                    Export
+                                    Export Video
                                 </button>
                             </div>
                         </>
@@ -175,8 +211,15 @@ export function ExportModal({
                             <div className={styles.iconWrapper}>
                                 <Loader size={32} className={styles.iconSpinner} />
                             </div>
-                            <p className={styles.message}>{message}</p>
-                            <div className={styles.progressWrapper}>
+                            <p className={styles.message} aria-live="polite">{message}</p>
+                            <div
+                                className={styles.progressWrapper}
+                                role="progressbar"
+                                aria-valuenow={progress}
+                                aria-valuemin={0}
+                                aria-valuemax={100}
+                                aria-label="Export progress"
+                            >
                                 <div className={styles.progressBar}>
                                     <div
                                         className={styles.progressFill}
@@ -184,6 +227,11 @@ export function ExportModal({
                                     />
                                 </div>
                                 <div className={styles.progressText}>{progress}%</div>
+                            </div>
+                            <div className={styles.actions} style={{ marginTop: '1.25rem', justifyContent: 'center' }}>
+                                <button className="btn" onClick={() => { reset(); onClose(); }}>
+                                    Cancel Processing
+                                </button>
                             </div>
                         </>
                     )}
@@ -194,17 +242,19 @@ export function ExportModal({
                             <div className={styles.iconWrapper}>
                                 <CheckCircle size={32} className={styles.iconSuccess} />
                             </div>
-                            <p className={styles.message}>
-                                Your video is ready to download!
+                            <p className={styles.message} aria-live="polite">
+                                {outputUrl ? 'Your video is ready to download!' : 'All split segments downloaded successfully!'}
                             </p>
                             <div className={styles.actions}>
                                 <button className="btn" onClick={handleClose}>
                                     Close
                                 </button>
-                                <button className="btn btn-primary" onClick={handleDownload}>
-                                    <Download size={16} />
-                                    Download MP4
-                                </button>
+                                {outputUrl && (
+                                    <button className="btn btn-primary" onClick={handleDownload}>
+                                        <Download size={16} />
+                                        Download MP4
+                                    </button>
+                                )}
                             </div>
                         </>
                     )}
@@ -215,7 +265,7 @@ export function ExportModal({
                             <div className={styles.iconWrapper}>
                                 <AlertCircle size={32} className={styles.iconError} />
                             </div>
-                            <div className={styles.error}>{error}</div>
+                            <div className={styles.error} role="alert">{error}</div>
                             <div className={styles.actions}>
                                 <button className="btn" onClick={handleClose}>
                                     Close

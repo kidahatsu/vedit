@@ -1,240 +1,220 @@
+/* ==========================================================================
+   Apple Final Cut Pro / Studio Inspector Styles
+   ========================================================================== */
+
 .panel {
-    background: var(--color-bg-secondary);
+    background: rgba(14, 14, 20, 0.75);
+    backdrop-filter: blur(28px) saturate(180%);
+    -webkit-backdrop-filter: blur(28px) saturate(180%);
     border-top: 1px solid var(--color-border);
-    padding: var(--space-3) var(--space-4);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
     display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-4);
     align-items: center;
+    gap: var(--space-4);
+    padding: 0 var(--space-4);
+    height: 48px;
+    overflow-x: auto;
+    user-select: none;
+    z-index: var(--z-sticky);
 }
 
 .section {
     display: flex;
     align-items: center;
-    gap: var(--space-2);
+    gap: 4px;
+    flex-shrink: 0;
 }
 
 .sectionLabel {
-    font-size: var(--font-size-xs);
-    color: var(--color-text-muted);
+    font-size: 10px;
+    font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
-    margin-right: var(--space-2);
+    letter-spacing: 0.08em;
+    color: var(--color-text-muted);
+    margin-right: 4px;
 }
 
-.divider {
-    width: 1px;
-    height: 24px;
-    background: var(--color-border);
+/* Apple Segmented Pill Selector */
+.segmentedGroup {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    background: rgba(0, 0, 0, 0.4);
+    padding: 2px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--color-border);
 }
 
-/* Aspect Ratio Buttons */
 .aspectBtn {
     display: flex;
-    flex-direction: column;
     align-items: center;
-    gap: var(--space-1);
-    padding: var(--space-2);
-    background: var(--color-bg-tertiary);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-md);
+    gap: 4px;
+    height: 24px;
+    padding: 0 8px;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    color: var(--color-text-secondary);
+    font-size: 11px;
+    font-weight: 500;
     cursor: pointer;
     transition: all var(--transition-fast);
-    min-width: 48px;
 }
 
 .aspectBtn:hover {
-    background: var(--color-bg-primary);
-    border-color: var(--color-accent-primary);
+    color: var(--color-text-primary);
+    background: rgba(255, 255, 255, 0.06);
 }
 
 .aspectBtn.active {
-    background: var(--color-accent-primary);
-    border-color: var(--color-accent-primary);
-    color: var(--color-bg-primary);
+    background: rgba(255, 255, 255, 0.14);
+    border-color: rgba(255, 255, 255, 0.18);
+    color: #ffffff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 
 .aspectIcon {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: currentColor;
+    border: 1px solid currentColor;
     opacity: 0.8;
 }
 
 .aspectLabel {
-    font-size: var(--font-size-xs);
     font-weight: 500;
 }
 
-/* Transform Buttons */
+.divider {
+    width: 1px;
+    height: 20px;
+    background: var(--color-border);
+    flex-shrink: 0;
+}
+
+/* Transform & Speed Buttons */
 .transformBtn {
-    width: 36px;
-    height: 36px;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: var(--color-bg-tertiary);
+    gap: 4px;
+    height: 26px;
+    padding: 0 8px;
+    background: rgba(255, 255, 255, 0.04);
     border: 1px solid var(--color-border);
-    border-radius: var(--radius-md);
-    cursor: pointer;
+    border-radius: var(--radius-sm);
     color: var(--color-text-secondary);
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
     transition: all var(--transition-fast);
 }
 
 .transformBtn:hover {
-    background: var(--color-bg-primary);
-    border-color: var(--color-accent-primary);
+    background: rgba(255, 255, 255, 0.09);
+    border-color: var(--color-border-hover);
     color: var(--color-text-primary);
 }
 
 .transformBtn.active {
-    background: var(--color-accent-primary);
-    border-color: var(--color-accent-primary);
-    color: var(--color-bg-primary);
+    background: rgba(10, 132, 255, 0.16);
+    border-color: rgba(10, 132, 255, 0.4);
+    color: var(--color-accent-primary);
+    box-shadow: 0 0 10px rgba(10, 132, 255, 0.25);
 }
 
-.transformBtn:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-}
-
-/* Rotation Indicator */
-.rotationIndicator {
-    font-size: var(--font-size-xs);
-    color: var(--color-text-muted);
-    margin-left: var(--space-1);
-}
-
-/* Reset Button */
-.resetBtn {
-    padding: var(--space-2) var(--space-3);
+.speedBtn {
+    height: 24px;
+    padding: 0 7px;
     background: transparent;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-md);
+    border: 1px solid transparent;
+    border-radius: 4px;
     color: var(--color-text-secondary);
-    font-size: var(--font-size-sm);
+    font-family: var(--font-mono);
+    font-size: 11px;
     cursor: pointer;
     transition: all var(--transition-fast);
-    display: flex;
-    align-items: center;
-    gap: var(--space-1);
 }
 
-.resetBtn:hover {
-    background: var(--color-bg-tertiary);
-    border-color: var(--color-accent-primary);
+.speedBtn:hover {
+    background: rgba(255, 255, 255, 0.06);
     color: var(--color-text-primary);
 }
 
-.resetBtn:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
+.speedBtn.active {
+    background: rgba(255, 255, 255, 0.14);
+    border-color: rgba(255, 255, 255, 0.18);
+    color: #ffffff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
 }
 
-/* Crop Mode Toggle */
-.cropToggle {
-    padding: var(--space-2) var(--space-3);
-    background: var(--color-bg-tertiary);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-md);
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-sm);
-    cursor: pointer;
-    transition: all var(--transition-fast);
+/* Audio Level Slider */
+.audioGroup {
     display: flex;
     align-items: center;
     gap: var(--space-2);
 }
 
-.cropToggle:hover {
-    background: var(--color-bg-primary);
-    border-color: var(--color-accent-primary);
+.sliderWrapper {
+    display: flex;
+    align-items: center;
+    gap: 6px;
 }
 
-.cropToggle.active {
-    background: var(--color-accent-secondary);
-    border-color: var(--color-accent-secondary);
-    color: var(--color-bg-primary);
+.slider {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 64px;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: var(--radius-full);
+    outline: none;
+    cursor: pointer;
 }
 
-/* Speed Buttons */
-.speedBtn {
-    padding: var(--space-2) var(--space-3);
-    background: var(--color-bg-tertiary);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-md);
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-xs);
-    font-weight: 600;
+.slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #ffffff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+    cursor: pointer;
+    transition: transform var(--transition-fast);
+}
+
+.slider::-webkit-slider-thumb:hover {
+    transform: scale(1.2);
+}
+
+.valueBadge {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--color-text-muted);
+    min-width: 26px;
+}
+
+.resetBtn {
+    height: 26px;
+    padding: 0 8px;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    color: var(--color-text-muted);
+    font-size: 11px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
     cursor: pointer;
     transition: all var(--transition-fast);
-    min-width: 44px;
+    margin-left: auto;
 }
 
-.speedBtn:hover {
-    background: var(--color-bg-primary);
-    border-color: var(--color-accent-primary);
+.resetBtn:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: var(--color-border);
     color: var(--color-text-primary);
 }
 
-.speedBtn.active {
-    color: var(--color-bg-primary);
-}
-
-/* Audio Controls */
-.rangeWrapper {
-    display: flex;
-    align-items: center;
-    width: 60px;
-    margin: 0 var(--space-1);
-}
-
-.rangeInput {
-    width: 100%;
-    cursor: pointer;
-    accent-color: var(--color-accent-primary);
-}
-
-.fadeInputWrapper {
-    display: flex;
-    align-items: center;
-    background: var(--color-bg-tertiary);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-md);
-    padding: 0 var(--space-2);
-    height: 36px;
-    width: 64px;
-}
-
-.fadeIcon {
-    color: var(--color-text-muted);
-    margin-right: var(--space-1);
-}
-
-.numberInput {
-    width: 100%;
-    background: transparent;
-    border: none;
-    color: var(--color-text-primary);
-    font-size: var(--font-size-xs);
-    font-family: inherit;
-    text-align: right;
-    -moz-appearance: textfield;
-}
-
-.numberInput::-webkit-inner-spin-button,
-.numberInput::-webkit-outer-spin-button {
-    -webkit-appearance: none;
-    margin: 0;
-}
-
-.numberInput:focus {
-    outline: none;
-}
-
-.unitLabel {
-    font-size: var(--font-size-xs);
-    color: var(--color-text-muted);
-    margin-left: 2px;
+.resetBtn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
 }

@@ -1,79 +1,183 @@
+/* ==========================================================================
+   Apple Studio Clips Drawer Styles
+   ========================================================================== */
+
 .panel {
+    width: var(--sidebar-width);
+    background: rgba(12, 12, 16, 0.6);
+    backdrop-filter: blur(28px) saturate(180%);
+    -webkit-backdrop-filter: blur(28px) saturate(180%);
+    border-right: 1px solid var(--color-border);
     display: flex;
     flex-direction: column;
-    width: var(--sidebar-width);
-    min-width: var(--sidebar-width);
-    background: var(--color-bg-secondary);
-    border-right: 1px solid var(--color-border);
+    flex-shrink: 0;
     overflow: hidden;
+    user-select: none;
 }
 
-.title {
-    padding: var(--space-4);
-    font-size: var(--font-size-sm);
-    font-weight: var(--font-weight-semibold);
-    color: var(--color-text-secondary);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+.panelHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-3) var(--space-4);
     border-bottom: 1px solid var(--color-border);
 }
 
+.title {
+    font-size: var(--font-size-xs);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--color-text-muted);
+}
+
+.countBadge {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 1px 6px;
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: var(--radius-full);
+    color: var(--color-text-secondary);
+}
+
+/* Apple Pro Drop Zone */
+.dropZone {
+    flex: 1;
+    margin: var(--space-3);
+    border: 1.5px dashed rgba(255, 255, 255, 0.12);
+    border-radius: var(--radius-lg);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    padding: var(--space-4);
+    text-align: center;
+    color: var(--color-text-secondary);
+    background: rgba(255, 255, 255, 0.015);
+    cursor: pointer;
+    transition: all var(--transition-normal);
+}
+
+.dropZone:hover {
+    border-color: rgba(10, 132, 255, 0.5);
+    background: rgba(10, 132, 255, 0.04);
+    color: var(--color-text-primary);
+    transform: scale(0.99);
+}
+
+.dropZone.active {
+    border-color: var(--color-accent-primary);
+    background: rgba(10, 132, 255, 0.08);
+    box-shadow: 0 0 20px rgba(10, 132, 255, 0.2);
+}
+
+.dropIcon {
+    color: var(--color-accent-primary);
+    opacity: 0.8;
+    transition: transform var(--transition-normal);
+}
+
+.dropZone:hover .dropIcon {
+    transform: translateY(-2px);
+    opacity: 1;
+}
+
+.dropTitle {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+}
+
+.dropSubtitle {
+    font-size: var(--font-size-2xs);
+    color: var(--color-text-muted);
+}
+
+/* Clips List */
 .list {
     flex: 1;
     overflow-y: auto;
-    padding: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
 }
 
+/* Apple Pro Clip Card */
 .clip {
     display: flex;
     align-items: center;
-    gap: var(--space-3);
-    padding: var(--space-2);
-    margin-bottom: var(--space-2);
-    background: var(--color-bg-glass);
+    gap: var(--space-2);
+    padding: 6px;
+    background: rgba(255, 255, 255, 0.025);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-md);
     cursor: pointer;
     transition: all var(--transition-fast);
+    position: relative;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
 .clip:hover {
-    background: var(--color-bg-glass-hover);
-    border-color: var(--color-border-hover);
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.15);
 }
 
 .clipSelected {
-    border-color: var(--color-accent-primary);
-    box-shadow: 0 0 0 1px var(--color-accent-primary);
+    background: rgba(10, 132, 255, 0.12) !important;
+    border-color: rgba(10, 132, 255, 0.5) !important;
+    box-shadow: 0 0 0 1px rgba(10, 132, 255, 0.4), 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.thumbnailContainer {
+    position: relative;
+    width: 52px;
+    height: 36px;
+    border-radius: var(--radius-xs);
+    overflow: hidden;
+    background: #000;
+    flex-shrink: 0;
 }
 
 .thumbnail {
-    width: 48px;
-    height: 36px;
-    background: var(--color-bg-tertiary);
-    border-radius: var(--radius-sm);
+    width: 100%;
+    height: 100%;
     object-fit: cover;
-    flex-shrink: 0;
 }
 
 .thumbnailPlaceholder {
-    width: 48px;
-    height: 36px;
-    background: var(--color-bg-tertiary);
-    border-radius: var(--radius-sm);
+    width: 100%;
+    height: 100%;
     display: flex;
     align-items: center;
     justify-content: center;
-    flex-shrink: 0;
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--color-text-muted);
+}
+
+.clipDurationBadge {
+    position: absolute;
+    bottom: 2px;
+    right: 2px;
+    background: rgba(0, 0, 0, 0.75);
+    color: #fff;
+    font-family: var(--font-mono);
+    font-size: 8px;
+    padding: 1px 3px;
+    border-radius: 2px;
+    line-height: 1;
 }
 
 .clipInfo {
     flex: 1;
     min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
 }
 
 .clipName {
-    font-size: var(--font-size-sm);
+    font-size: var(--font-size-xs);
     font-weight: var(--font-weight-medium);
     color: var(--color-text-primary);
     white-space: nowrap;
@@ -83,182 +187,59 @@
 
 .clipDuration {
     font-family: var(--font-mono);
-    font-size: var(--font-size-xs);
+    font-size: 10px;
     color: var(--color-text-muted);
+    font-variant-numeric: tabular-nums;
 }
 
+.menuBtn,
 .removeBtn {
-    padding: var(--space-1);
-    background: transparent;
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    border-radius: var(--radius-xs);
     border: none;
-    border-radius: var(--radius-sm);
+    background: transparent;
     color: var(--color-text-muted);
     cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     opacity: 0;
     transition: all var(--transition-fast);
 }
 
+.clip:hover .menuBtn,
 .clip:hover .removeBtn {
-    opacity: 1;
+    opacity: 0.7;
 }
 
+.menuBtn:hover,
 .removeBtn:hover {
-    color: var(--color-accent-error);
-    background: rgba(255, 68, 102, 0.1);
-}
-
-.menuBtn {
-    padding: var(--space-1);
-    background: transparent;
-    border: none;
-    border-radius: var(--radius-sm);
-    color: var(--color-text-muted);
-    cursor: pointer;
-    opacity: 0;
-    transition: all var(--transition-fast);
-}
-
-.clip:hover .menuBtn {
-    opacity: 1;
-}
-
-.menuBtn:hover {
+    opacity: 1 !important;
+    background: rgba(255, 255, 255, 0.1);
     color: var(--color-text-primary);
-    background: var(--color-bg-tertiary);
 }
 
 .addButton {
+    margin: var(--space-2) var(--space-3) var(--space-3);
     display: flex;
     align-items: center;
     justify-content: center;
     gap: var(--space-2);
-    margin: var(--space-2);
-    padding: var(--space-3);
-    background: var(--color-bg-glass);
-    border: 1px dashed var(--color-border);
-    border-radius: var(--radius-md);
+    height: 30px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
     color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-medium);
     cursor: pointer;
     transition: all var(--transition-fast);
 }
 
 .addButton:hover {
-    background: var(--color-bg-glass-hover);
-    border-color: var(--color-accent-primary);
-    color: var(--color-accent-primary);
-}
-
-.dropZone {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    margin: var(--space-2);
-    padding: var(--space-6);
-    border: 2px dashed var(--color-border);
-    border-radius: var(--radius-lg);
-    color: var(--color-text-muted);
-    text-align: center;
-    transition: all var(--transition-fast);
-}
-
-.dropZone.active {
-    border-color: var(--color-accent-primary);
-    background: rgba(0, 212, 255, 0.05);
-    color: var(--color-accent-primary);
-}
-
-.dropIcon {
-    margin-bottom: var(--space-3);
-    color: var(--color-text-muted);
-}
-
-.dropZone.active .dropIcon {
-    color: var(--color-accent-primary);
-}
-
-/* ===========================================
-   Responsive Styles
-   =========================================== */
-
-/* Mobile: horizontal scroll strip at top */
-@media (max-width: 767px) {
-    .panel {
-        width: 100%;
-        min-width: unset;
-        height: auto;
-        max-height: 140px;
-        flex-direction: column;
-        border-right: none;
-        border-bottom: 1px solid var(--color-border);
-    }
-
-    .title {
-        padding: var(--space-2) var(--space-3);
-        font-size: var(--font-size-xs);
-    }
-
-    .list {
-        flex-direction: row;
-        overflow-x: auto;
-        overflow-y: hidden;
-        padding: var(--space-2);
-        gap: var(--space-2);
-        display: flex;
-    }
-
-    .clip {
-        flex-shrink: 0;
-        width: 120px;
-        flex-direction: column;
-        padding: var(--space-2);
-        margin-bottom: 0;
-    }
-
-    .thumbnail {
-        width: 100%;
-        height: 54px;
-    }
-
-    .thumbnailPlaceholder {
-        width: 100%;
-        height: 54px;
-    }
-
-    .clipInfo {
-        width: 100%;
-        text-align: center;
-    }
-
-    .clipName {
-        font-size: var(--font-size-xs);
-    }
-
-    .clipDuration {
-        font-size: 10px;
-    }
-
-    .removeBtn {
-        position: absolute;
-        top: var(--space-1);
-        right: var(--space-1);
-        opacity: 1;
-    }
-
-    .clip {
-        position: relative;
-    }
-
-    .addButton {
-        flex-shrink: 0;
-        width: auto;
-        min-width: 100px;
-        margin: var(--space-2);
-        padding: var(--space-2);
-    }
-
-    .dropZone {
-        padding: var(--space-4);
-    }
+    background: rgba(255, 255, 255, 0.08);
+    border-color: var(--color-border-hover);
+    color: var(--color-text-primary);
 }

@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState, useMemo } from 'react'
-import { Play, Pause, Volume2, VolumeX, Film } from 'lucide-react'
-import { useEditorStore, ASPECT_RATIO_DIMENSIONS } from '../../store/editorStore'
+import { Play, Pause, Volume2, VolumeX, Film, ChevronLeft, ChevronRight } from 'lucide-react'
+import { useEditorStore } from '../../store/editorStore'
 import { useSelectedClip } from '../../store/selectors'
-import { formatTime } from '../../lib/utils'
+import { formatTime, clamp } from '../../lib/utils'
 import { buildVideoTransformStyle, calculateCropBoxStyle, hasCropApplied } from '../../utils/videoTransforms'
 import { probeVideo } from '../../lib/ffmpeg'
 import styles from './VideoPlayer.module.css'
@@ -21,6 +21,8 @@ export function VideoPlayer() {
 
     const videoRef = useRef<HTMLVideoElement>(null)
     const playerRef = useRef<HTMLDivElement>(null)
+    const videoWrapperRef = useRef<HTMLDivElement>(null)
+    const [videoDimensions, setVideoDimensions] = useState<{ width: number; height: number } | null>(null)
     const [isPlaying, setIsPlaying] = useState(false)
     const [currentTime, setCurrentTime] = useState(0)
     const [duration, setDuration] = useState(0)
@@ -36,24 +38,27 @@ export function VideoPlayer() {
     const [cropStart, setCropStart] = useState({ x: 0, y: 0, width: 1, height: 1 })
 
     // Create object URL when clip changes
-    // Track URL and clip ID in refs to handle React StrictMode double-invocation
-    const blobUrlRef = useRef<{ url: string; clipId: string } | null>(null)
+    // Track URL, clip ID, and file reference to handle React StrictMode
+    const blobUrlRef = useRef<{ url: string; clipId: string; file: File } | null>(null)
+    const selectedClipRef = useRef(selectedClip)
+    selectedClipRef.current = selectedClip
 
     useEffect(() => {
         const currentClipId = selectedClip?.id
         const currentFile = selectedClip?.file
 
         if (!currentFile || !currentClipId) {
-            // No clip selected, clear state but don't revoke yet
-            // (the URL might still be needed if this is StrictMode unmount/remount)
+            if (blobUrlRef.current) {
+                URL.revokeObjectURL(blobUrlRef.current.url)
+                blobUrlRef.current = null
+            }
             setVideoUrl(null)
             setIsPlaying(false)
             return
         }
 
         // Check if we already have a URL for this exact file reference
-        if (blobUrlRef.current?.clipId === currentClipId && (blobUrlRef.current as unknown as { file: File }).file === currentFile) {
-            // Same clip and same file, reuse existing URL
+        if (blobUrlRef.current?.clipId === currentClipId && blobUrlRef.current?.file === currentFile) {
             setVideoUrl(blobUrlRef.current.url)
             return
         }
@@ -64,15 +69,9 @@ export function VideoPlayer() {
         }
 
         const newUrl = URL.createObjectURL(currentFile)
-        blobUrlRef.current = { url: newUrl, clipId: currentClipId, file: currentFile } as { url: string; clipId: string; file: File }
+        blobUrlRef.current = { url: newUrl, clipId: currentClipId, file: currentFile }
         setVideoUrl(newUrl)
         setCurrentTime(selectedClip.trimStart)
-
-        // Cleanup on unmount only (not on dependency change)
-        return () => {
-            // Only revoke if this is a true unmount (component removed)
-            // For dependency changes, we handle it at the top of the effect
-        }
     }, [selectedClip?.id, selectedClip?.file, selectedClip?.trimStart])
 
     // Probe codec when clip changes
@@ -86,9 +85,10 @@ export function VideoPlayer() {
         probeVideo(selectedClip.file).then(info => {
             if (isMounted && info.codec_name) {
                 setCodec(info.codec_name)
-                if (info.codec_name.includes('hevc') || info.codec_name.includes('hvc1')) {
-                    console.warn(`[VideoPlayer] Incompatible codec detected: ${info.codec_name}. Video may be invisible.`)
-                }
+            }
+        }).catch(() => {
+            if (isMounted) {
+                setCodec(null)
             }
         })
 
@@ -110,43 +110,28 @@ export function VideoPlayer() {
     // Sync video element with state
     useEffect(() => {
         const video = videoRef.current
-        if (!video) return
+        if (!video || !videoUrl) return
 
         const handleTimeUpdate = () => {
             setCurrentTime(video.currentTime)
+            const clip = selectedClipRef.current
             // Loop within trim range
-            if (selectedClip && video.currentTime >= selectedClip.trimEnd) {
-                video.currentTime = selectedClip.trimStart
+            if (clip && video.currentTime >= clip.trimEnd) {
+                video.currentTime = clip.trimStart
                 video.pause()
                 setIsPlaying(false)
             }
         }
 
-        const logDiagnostics = () => {
-            if (!videoRef.current) return
-            const v = videoRef.current
-            const rect = v.getBoundingClientRect()
-            console.log(`[VideoPlayer] VISIBILITY CHECK:
-                ReadyState: ${v.readyState}
-                CurrentTime: ${v.currentTime}
-                Video Size: ${v.videoWidth}x${v.videoHeight}
-                DOM Rect: ${rect.width}x${rect.height} at (${rect.left}, ${rect.top})
-                Offset Size: ${v.offsetWidth}x${v.offsetHeight}
-                Parent Size: ${v.parentElement?.clientWidth}x${v.parentElement?.clientHeight}
-                Src (first 50): ${v.src.substring(0, 50)}...`)
-        }
-
         const handleLoadedMetadata = () => {
             setDuration(video.duration)
-            if (selectedClip) {
-                // Nudge it to 0.1s to be sure we are on a real frame
-                video.currentTime = selectedClip.trimStart + 0.1
+            if (video.videoWidth > 0 && video.videoHeight > 0) {
+                setVideoDimensions({ width: video.videoWidth, height: video.videoHeight })
             }
-            logDiagnostics()
-        }
-
-        const handleCanPlay = () => {
-            logDiagnostics()
+            const clip = selectedClipRef.current
+            if (clip) {
+                video.currentTime = clip.trimStart
+            }
         }
 
         const handlePlay = () => setIsPlaying(true)
@@ -155,36 +140,28 @@ export function VideoPlayer() {
 
         // Handle video errors (e.g., revoked blob URLs after undo)
         const handleError = (e: Event) => {
-            const videoElement = e.currentTarget as HTMLVideoElement;
+            const videoElement = e.currentTarget as HTMLVideoElement
             console.error('Video error:', videoElement.error)
-            // Silently handle errors from revoked blob URLs
-            // This can happen when undo removes a clip and the URL is revoked
             setVideoUrl(null)
             setIsPlaying(false)
-            logDiagnostics()
         }
 
         video.addEventListener('timeupdate', handleTimeUpdate)
         video.addEventListener('loadedmetadata', handleLoadedMetadata)
-        video.addEventListener('canplay', handleCanPlay)
         video.addEventListener('play', handlePlay)
         video.addEventListener('pause', handlePause)
         video.addEventListener('ended', handleEnded)
         video.addEventListener('error', handleError)
 
-        // Initial check
-        logDiagnostics()
-
         return () => {
             video.removeEventListener('timeupdate', handleTimeUpdate)
             video.removeEventListener('loadedmetadata', handleLoadedMetadata)
-            video.removeEventListener('canplay', handleCanPlay)
             video.removeEventListener('play', handlePlay)
             video.removeEventListener('pause', handlePause)
             video.removeEventListener('ended', handleEnded)
             video.removeEventListener('error', handleError)
         }
-    }, [videoUrl, selectedClipId, selectedClip])
+    }, [videoUrl])
 
     // Sync playback rate with speed transform for live preview
     useEffect(() => {
@@ -238,19 +215,53 @@ export function VideoPlayer() {
         const video = videoRef.current
         if (!video) return
 
-        video.muted = !isMuted
-        setIsMuted(!isMuted)
+        const nextMuted = !isMuted
+        video.muted = nextMuted
+        setIsMuted(nextMuted)
     }, [isMuted])
+
+    // Sync volume and muted state to video element
+    useEffect(() => {
+        const video = videoRef.current
+        if (!video || !selectedClip) return
+
+        const targetVolume = Math.max(0, Math.min(1, (selectedClip.transform.volume ?? 100) / 100))
+        video.volume = targetVolume
+        video.muted = isMuted || !!selectedClip.transform.muted
+    }, [selectedClip, isMuted])
+
+    const stepFrame = useCallback((frames: number) => {
+        if (!videoRef.current || !selectedClip) return
+        const newTime = clamp(
+            videoRef.current.currentTime + (frames * (1 / 30)),
+            selectedClip.trimStart,
+            selectedClip.trimEnd
+        )
+        videoRef.current.currentTime = newTime
+        setCurrentTime(newTime)
+    }, [selectedClip])
 
     // Keyboard controls
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.target instanceof HTMLInputElement) return
+            if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
 
             switch (e.code) {
                 case 'Space':
                     e.preventDefault()
                     togglePlay()
+                    break
+                case 'KeyM':
+                    e.preventDefault()
+                    toggleMute()
+                    break
+                case 'Comma': // <
+                    e.preventDefault()
+                    stepFrame(-1)
+                    break
+                case 'Period': // >
+                    e.preventDefault()
+                    stepFrame(1)
                     break
                 case 'KeyI':
                     if (selectedClip && selectedClipId) {
@@ -263,7 +274,6 @@ export function VideoPlayer() {
                     }
                     break
                 case 'KeyS':
-                    // Add split point at current time
                     if (selectedClipId && currentTime > 0) {
                         addSplitPoint(selectedClipId, currentTime)
                     }
@@ -283,7 +293,7 @@ export function VideoPlayer() {
 
         window.addEventListener('keydown', handleKeyDown)
         return () => window.removeEventListener('keydown', handleKeyDown)
-    }, [togglePlay, selectedClip, selectedClipId, currentTime, duration, updateClipTrim, addSplitPoint])
+    }, [togglePlay, toggleMute, stepFrame, selectedClip, selectedClipId, currentTime, duration, updateClipTrim, addSplitPoint])
 
     // Build video transform style using shared utility
     const videoTransformStyle = useMemo(() => {
@@ -293,7 +303,7 @@ export function VideoPlayer() {
 
     // Crop overlay handlers
     const handleCropMouseDown = useCallback((e: React.MouseEvent, handle: DragHandle) => {
-        if (!cropMode || !selectedClip) return
+        if (!selectedClip) return
         e.preventDefault()
         e.stopPropagation()
 
@@ -306,12 +316,12 @@ export function VideoPlayer() {
             width: selectedClip.transform.cropWidth,
             height: selectedClip.transform.cropHeight
         })
-    }, [cropMode, selectedClip])
+    }, [selectedClip])
 
     const handleCropMouseMove = useCallback((e: MouseEvent) => {
-        if (!isDragging || !dragHandle || !playerRef.current || !selectedClipId) return
+        if (!isDragging || !dragHandle || !videoWrapperRef.current || !selectedClipId) return
 
-        const rect = playerRef.current.getBoundingClientRect()
+        const rect = videoWrapperRef.current.getBoundingClientRect()
         const deltaX = (e.clientX - dragStart.x) / rect.width
         const deltaY = (e.clientY - dragStart.y) / rect.height
 
@@ -326,46 +336,46 @@ export function VideoPlayer() {
                 newY = Math.max(0, Math.min(1 - newHeight, cropStart.y + deltaY))
                 break
             case 'topLeft':
-                newX = Math.max(0, Math.min(cropStart.x + cropStart.width - 0.1, cropStart.x + deltaX))
-                newY = Math.max(0, Math.min(cropStart.y + cropStart.height - 0.1, cropStart.y + deltaY))
+                newX = Math.max(0, Math.min(cropStart.x + cropStart.width - 0.05, cropStart.x + deltaX))
+                newY = Math.max(0, Math.min(cropStart.y + cropStart.height - 0.05, cropStart.y + deltaY))
                 newWidth = cropStart.width - (newX - cropStart.x)
                 newHeight = cropStart.height - (newY - cropStart.y)
                 break
             case 'topRight':
-                newY = Math.max(0, Math.min(cropStart.y + cropStart.height - 0.1, cropStart.y + deltaY))
-                newWidth = Math.max(0.1, Math.min(1 - cropStart.x, cropStart.width + deltaX))
+                newY = Math.max(0, Math.min(cropStart.y + cropStart.height - 0.05, cropStart.y + deltaY))
+                newWidth = Math.max(0.05, Math.min(1 - cropStart.x, cropStart.width + deltaX))
                 newHeight = cropStart.height - (newY - cropStart.y)
                 break
             case 'bottomLeft':
-                newX = Math.max(0, Math.min(cropStart.x + cropStart.width - 0.1, cropStart.x + deltaX))
+                newX = Math.max(0, Math.min(cropStart.x + cropStart.width - 0.05, cropStart.x + deltaX))
                 newWidth = cropStart.width - (newX - cropStart.x)
-                newHeight = Math.max(0.1, Math.min(1 - cropStart.y, cropStart.height + deltaY))
+                newHeight = Math.max(0.05, Math.min(1 - cropStart.y, cropStart.height + deltaY))
                 break
             case 'bottomRight':
-                newWidth = Math.max(0.1, Math.min(1 - cropStart.x, cropStart.width + deltaX))
-                newHeight = Math.max(0.1, Math.min(1 - cropStart.y, cropStart.height + deltaY))
+                newWidth = Math.max(0.05, Math.min(1 - cropStart.x, cropStart.width + deltaX))
+                newHeight = Math.max(0.05, Math.min(1 - cropStart.y, cropStart.height + deltaY))
                 break
             case 'top':
-                newY = Math.max(0, Math.min(cropStart.y + cropStart.height - 0.1, cropStart.y + deltaY))
+                newY = Math.max(0, Math.min(cropStart.y + cropStart.height - 0.05, cropStart.y + deltaY))
                 newHeight = cropStart.height - (newY - cropStart.y)
                 break
             case 'bottom':
-                newHeight = Math.max(0.1, Math.min(1 - cropStart.y, cropStart.height + deltaY))
+                newHeight = Math.max(0.05, Math.min(1 - cropStart.y, cropStart.height + deltaY))
                 break
             case 'left':
-                newX = Math.max(0, Math.min(cropStart.x + cropStart.width - 0.1, cropStart.x + deltaX))
+                newX = Math.max(0, Math.min(cropStart.x + cropStart.width - 0.05, cropStart.x + deltaX))
                 newWidth = cropStart.width - (newX - cropStart.x)
                 break
             case 'right':
-                newWidth = Math.max(0.1, Math.min(1 - cropStart.x, cropStart.width + deltaX))
+                newWidth = Math.max(0.05, Math.min(1 - cropStart.x, cropStart.width + deltaX))
                 break
         }
 
         updateTransform(selectedClipId, {
-            cropX: newX,
-            cropY: newY,
-            cropWidth: newWidth,
-            cropHeight: newHeight
+            cropX: Number(newX.toFixed(4)),
+            cropY: Number(newY.toFixed(4)),
+            cropWidth: Number(newWidth.toFixed(4)),
+            cropHeight: Number(newHeight.toFixed(4))
         })
     }, [isDragging, dragHandle, dragStart, cropStart, selectedClipId, updateTransform])
 
@@ -394,44 +404,94 @@ export function VideoPlayer() {
     // Check if a non-default crop is applied using shared utility
     const isCropped = selectedClip && hasCropApplied(selectedClip.transform)
 
-    // Aspect ratio preview - calculate letterbox/pillarbox effect
-    const aspectRatioStyle = useMemo(() => {
-        if (!selectedClip || selectedClip.transform.aspectRatio === 'original') {
-            return {}
-        }
-
-        const dims = ASPECT_RATIO_DIMENSIONS[selectedClip.transform.aspectRatio]
-
-        // Only set aspect ratio - let CSS module handle max-height/max-width constraints
-        return {
-            aspectRatio: `${dims.width} / ${dims.height}`,
-        }
-    }, [selectedClip])
-
     // Show aspect ratio indicator text
     const aspectRatioLabel = selectedClip?.transform.aspectRatio !== 'original'
         ? selectedClip?.transform.aspectRatio
         : null
 
+    const showCropOverlay = Boolean((cropMode || isCropped || (selectedClip && selectedClip.transform.aspectRatio !== 'original')) && selectedClip && cropBox)
+
     return (
         <div className={styles.container}>
+            <div className={styles.ambientBacklight} />
             <div
-                className={`${styles.player} ${aspectRatioLabel ? styles.aspectPreviewActive : ''}`}
+                className={styles.player}
                 ref={playerRef}
-                style={aspectRatioStyle}
             >
                 {videoUrl ? (
                     <>
-                        <div className={styles.videoWrapper}>
+                        <div
+                            className={styles.videoWrapper}
+                            ref={videoWrapperRef}
+                            style={videoDimensions ? { aspectRatio: `${videoDimensions.width} / ${videoDimensions.height}` } : undefined}
+                        >
                             <video
                                 ref={videoRef}
                                 src={videoUrl}
                                 className={styles.video}
                                 style={videoTransformStyle}
-                                muted
                                 playsInline
-                                onClick={!cropMode ? togglePlay : undefined}
+                                onClick={!showCropOverlay ? togglePlay : undefined}
                             />
+
+                            {/* Active Interactive Crop Box & Edge Lines */}
+                            {showCropOverlay && selectedClip && cropBox && (
+                                <div className={styles.cropOverlay}>
+                                    <div
+                                        className={styles.cropBox}
+                                        style={cropBox}
+                                        onMouseDown={(e) => handleCropMouseDown(e, 'move')}
+                                    >
+                                        {/* Rule of thirds grid */}
+                                        <div className={styles.cropGrid}>
+                                            <div className={`${styles.cropGridLine} ${styles.h1}`} />
+                                            <div className={`${styles.cropGridLine} ${styles.h2}`} />
+                                            <div className={`${styles.cropGridLine} ${styles.v1}`} />
+                                            <div className={`${styles.cropGridLine} ${styles.v2}`} />
+                                        </div>
+
+                                        {/* Resize handles */}
+                                        <div
+                                            className={`${styles.cropHandle} ${styles.topLeft}`}
+                                            onMouseDown={(e) => handleCropMouseDown(e, 'topLeft')}
+                                        />
+                                        <div
+                                            className={`${styles.cropHandle} ${styles.topRight}`}
+                                            onMouseDown={(e) => handleCropMouseDown(e, 'topRight')}
+                                        />
+                                        <div
+                                            className={`${styles.cropHandle} ${styles.bottomLeft}`}
+                                            onMouseDown={(e) => handleCropMouseDown(e, 'bottomLeft')}
+                                        />
+                                        <div
+                                            className={`${styles.cropHandle} ${styles.bottomRight}`}
+                                            onMouseDown={(e) => handleCropMouseDown(e, 'bottomRight')}
+                                        />
+                                        <div
+                                            className={`${styles.cropHandle} ${styles.top}`}
+                                            onMouseDown={(e) => handleCropMouseDown(e, 'top')}
+                                        />
+                                        <div
+                                            className={`${styles.cropHandle} ${styles.bottom}`}
+                                            onMouseDown={(e) => handleCropMouseDown(e, 'bottom')}
+                                        />
+                                        <div
+                                            className={`${styles.cropHandle} ${styles.left}`}
+                                            onMouseDown={(e) => handleCropMouseDown(e, 'left')}
+                                        />
+                                        <div
+                                            className={`${styles.cropHandle} ${styles.right}`}
+                                            onMouseDown={(e) => handleCropMouseDown(e, 'right')}
+                                        />
+
+                                        {/* Crop info badge */}
+                                        <div className={styles.cropInfo}>
+                                            {selectedClip.transform.aspectRatio !== 'original' ? `${selectedClip.transform.aspectRatio} ` : ''}
+                                            ({Math.round(selectedClip.transform.cropWidth * 100)}% × {Math.round(selectedClip.transform.cropHeight * 100)}%)
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
                         {/* Incompatible Codec Warning */}
@@ -446,111 +506,97 @@ export function VideoPlayer() {
                             </div>
                         )}
 
-                        {/* Aspect Ratio Indicator */}
-                        {aspectRatioLabel && (
+                        {/* Aspect Ratio Indicator Badge */}
+                        {selectedClip && aspectRatioLabel && (
                             <div className={styles.aspectIndicator}>
-                                {aspectRatioLabel}
-                            </div>
-                        )}
-
-                        {/* Crop Preview Indicator (when crop mode is off but crop is applied) */}
-                        {!cropMode && isCropped && selectedClip && cropBox && (
-                            <div className={styles.cropPreviewOverlay}>
-                                <div
-                                    className={styles.cropPreviewBox}
-                                    style={cropBox}
-                                    onClick={() => useEditorStore.getState().toggleCropMode()}
-                                    title="Click to edit crop region"
-                                >
-                                    <div className={styles.cropPreviewLabel}>
-                                        ✂️ {Math.round(selectedClip.transform.cropWidth * 100)}% × {Math.round(selectedClip.transform.cropHeight * 100)}%
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Crop Overlay (edit mode) */}
-                        {cropMode && selectedClip && cropBox && (
-                            <div className={styles.cropOverlay}>
-                                <div
-                                    className={styles.cropBox}
-                                    style={cropBox}
-                                    onMouseDown={(e) => handleCropMouseDown(e, 'move')}
-                                >
-                                    {/* Rule of thirds grid */}
-                                    <div className={styles.cropGrid}>
-                                        <div className={`${styles.cropGridLine} ${styles.h1}`} />
-                                        <div className={`${styles.cropGridLine} ${styles.h2}`} />
-                                        <div className={`${styles.cropGridLine} ${styles.v1}`} />
-                                        <div className={`${styles.cropGridLine} ${styles.v2}`} />
-                                    </div>
-
-                                    {/* Resize handles */}
-                                    <div
-                                        className={`${styles.cropHandle} ${styles.topLeft}`}
-                                        onMouseDown={(e) => handleCropMouseDown(e, 'topLeft')}
-                                    />
-                                    <div
-                                        className={`${styles.cropHandle} ${styles.topRight}`}
-                                        onMouseDown={(e) => handleCropMouseDown(e, 'topRight')}
-                                    />
-                                    <div
-                                        className={`${styles.cropHandle} ${styles.bottomLeft}`}
-                                        onMouseDown={(e) => handleCropMouseDown(e, 'bottomLeft')}
-                                    />
-                                    <div
-                                        className={`${styles.cropHandle} ${styles.bottomRight}`}
-                                        onMouseDown={(e) => handleCropMouseDown(e, 'bottomRight')}
-                                    />
-                                    <div
-                                        className={`${styles.cropHandle} ${styles.top}`}
-                                        onMouseDown={(e) => handleCropMouseDown(e, 'top')}
-                                    />
-                                    <div
-                                        className={`${styles.cropHandle} ${styles.bottom}`}
-                                        onMouseDown={(e) => handleCropMouseDown(e, 'bottom')}
-                                    />
-                                    <div
-                                        className={`${styles.cropHandle} ${styles.left}`}
-                                        onMouseDown={(e) => handleCropMouseDown(e, 'left')}
-                                    />
-                                    <div
-                                        className={`${styles.cropHandle} ${styles.right}`}
-                                        onMouseDown={(e) => handleCropMouseDown(e, 'right')}
-                                    />
-
-                                    {/* Crop info */}
-                                    <div className={styles.cropInfo}>
-                                        {Math.round(selectedClip.transform.cropWidth * 100)}% × {Math.round(selectedClip.transform.cropHeight * 100)}%
-                                    </div>
-                                </div>
+                                {aspectRatioLabel} ({Math.round(selectedClip.transform.cropWidth * 100)}% × {Math.round(selectedClip.transform.cropHeight * 100)}%)
                             </div>
                         )}
 
                         <div className={styles.controls}>
-                            <button className={styles.playBtn} onClick={togglePlay}>
-                                {isPlaying ? <Pause size={16} /> : <Play size={16} />}
-                            </button>
+                            <div className={styles.transportBtnGroup}>
+                                <button
+                                    className={styles.stepBtn}
+                                    onClick={() => stepFrame(-1)}
+                                    title="Previous Frame (Left Arrow)"
+                                    aria-label="Previous frame"
+                                >
+                                    <ChevronLeft size={16} />
+                                </button>
+                                <button
+                                    className={styles.playBtn}
+                                    onClick={togglePlay}
+                                    title="Play / Pause (Space)"
+                                    aria-label={isPlaying ? 'Pause' : 'Play'}
+                                >
+                                    {isPlaying ? <Pause size={14} /> : <Play size={14} style={{ marginLeft: 1 }} />}
+                                </button>
+                                <button
+                                    className={styles.stepBtn}
+                                    onClick={() => stepFrame(1)}
+                                    title="Next Frame (Right Arrow)"
+                                    aria-label="Next frame"
+                                >
+                                    <ChevronRight size={16} />
+                                </button>
+                            </div>
 
                             <span className={styles.time}>
                                 {formatTime(currentTime)} / {formatTime(duration)}
                             </span>
 
-                            <div className={styles.scrubber} onClick={handleScrub}>
+                            <div
+                                className={styles.scrubber}
+                                onClick={handleScrub}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'ArrowLeft') {
+                                        e.preventDefault()
+                                        stepFrame(e.shiftKey ? -5 : -1)
+                                    } else if (e.key === 'ArrowRight') {
+                                        e.preventDefault()
+                                        stepFrame(e.shiftKey ? 5 : 1)
+                                    } else if (e.key === 'Home') {
+                                        e.preventDefault()
+                                        if (videoRef.current) {
+                                            videoRef.current.currentTime = 0
+                                            setCurrentTime(0)
+                                        }
+                                    } else if (e.key === 'End') {
+                                        e.preventDefault()
+                                        if (videoRef.current) {
+                                            videoRef.current.currentTime = duration
+                                            setCurrentTime(duration)
+                                        }
+                                    }
+                                }}
+                                tabIndex={0}
+                                role="slider"
+                                aria-orientation="horizontal"
+                                aria-valuemin={0}
+                                aria-valuemax={duration}
+                                aria-valuenow={currentTime}
+                                aria-valuetext={formatTime(currentTime)}
+                                aria-label="Playback progress"
+                            >
                                 <div className={styles.progress} style={{ width: `${progress}%` }} />
                                 <div className={styles.scrubberHandle} style={{ left: `${progress}%` }} />
                             </div>
 
                             <div className={styles.volume}>
-                                <button className={styles.volumeBtn} onClick={toggleMute}>
-                                    {isMuted || volume === 0 ? <VolumeX size={18} /> : <Volume2 size={18} />}
+                                <button
+                                    className={styles.volumeBtn}
+                                    onClick={toggleMute}
+                                    title={isMuted ? 'Unmute (M)' : 'Mute (M)'}
+                                    aria-label={isMuted ? 'Unmute' : 'Mute'}
+                                >
+                                    {isMuted || volume === 0 ? <VolumeX size={16} /> : <Volume2 size={16} />}
                                 </button>
                             </div>
                         </div>
                     </>
                 ) : (
                     <div className={styles.placeholder}>
-                        <Film size={48} className={styles.placeholderIcon} />
+                        <Film size={44} className={styles.placeholderIcon} />
                         <div>Select a clip to preview</div>
                     </div>
                 )}

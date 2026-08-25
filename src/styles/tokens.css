@@ -1,43 +1,57 @@
-/* ========================================
-   VEdit Design System - CSS Tokens
-   ======================================== */
+/* ==========================================================================
+   VEdit Pro Design System - Apple Studio Developer Grade Tokens
+   ========================================================================== */
 
 :root {
-  /* Colors - Background */
-  --color-bg-primary: #0d0d14;
-  --color-bg-secondary: #1a1a2e;
-  --color-bg-tertiary: #252542;
-  --color-bg-glass: rgba(255, 255, 255, 0.03);
-  --color-bg-glass-hover: rgba(255, 255, 255, 0.06);
+  /* Apple Obsidian Base Scale */
+  --color-bg-canvas: #060608;
+  --color-bg-primary: #0a0a0f;
+  --color-bg-secondary: #111117;
+  --color-bg-tertiary: #181822;
+  --color-bg-elevated: #20202c;
 
-  /* Colors - Accents */
-  --color-accent-primary: #00d4ff;
-  --color-accent-secondary: #ff00aa;
-  --color-accent-success: #00ff88;
-  --color-accent-warning: #ffaa00;
-  --color-accent-error: #ff4466;
+  /* Frosted Glass Vibrancy Materials */
+  --color-bg-glass: rgba(255, 255, 255, 0.04);
+  --color-bg-glass-hover: rgba(255, 255, 255, 0.08);
+  --color-bg-glass-active: rgba(255, 255, 255, 0.12);
+  --color-glass-dock: rgba(16, 16, 22, 0.78);
+  --color-glass-sheet: rgba(20, 20, 28, 0.85);
 
-  /* Colors - Text */
+  /* Apple Pro Accents */
+  --color-accent-primary: #0a84ff; /* Apple System Cyan/Blue */
+  --color-accent-secondary: #bf5af2; /* Apple System Purple */
+  --color-accent-indigo: #5e5ce6;
+  --color-accent-success: #30d158; /* Apple System Emerald */
+  --color-accent-warning: #ffd60a; /* Apple System Amber */
+  --color-accent-error: #ff453a; /* Apple System Coral Red */
+
+  /* Text & Labels Hierarchy */
   --color-text-primary: #ffffff;
-  --color-text-secondary: #a0a0c0;
-  --color-text-muted: #606080;
-  --color-text-disabled: #404050;
+  --color-text-secondary: rgba(255, 255, 255, 0.72);
+  --color-text-muted: rgba(255, 255, 255, 0.52);
+  --color-text-dim: rgba(255, 255, 255, 0.38);
 
-  /* Colors - Border */
-  --color-border: rgba(255, 255, 255, 0.08);
-  --color-border-hover: rgba(255, 255, 255, 0.15);
-  --color-border-focus: var(--color-accent-primary);
+  /* Borders & Specular Hairlines */
+  --color-border: rgba(255, 255, 255, 0.07);
+  --color-border-subtle: rgba(255, 255, 255, 0.12);
+  --color-border-hover: rgba(255, 255, 255, 0.2);
+  --color-border-focus: rgba(10, 132, 255, 0.65);
+
+  /* Specular Highlight Insets */
+  --border-specular-top: inset 0 1px 0 rgba(255, 255, 255, 0.14);
+  --border-specular-bottom: inset 0 -1px 0 rgba(0, 0, 0, 0.5);
 
   /* Typography */
-  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --font-mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Inter", system-ui, sans-serif;
+  --font-mono: "SF Mono", "JetBrains Mono", "Fira Code", monospace;
 
-  --font-size-xs: 0.75rem;
-  --font-size-sm: 0.875rem;
-  --font-size-md: 1rem;
-  --font-size-lg: 1.25rem;
-  --font-size-xl: 1.5rem;
-  --font-size-2xl: 2rem;
+  --font-size-2xs: 0.6875rem; /* 11px */
+  --font-size-xs: 0.75rem;    /* 12px */
+  --font-size-sm: 0.8125rem;  /* 13px */
+  --font-size-md: 0.875rem;   /* 14px */
+  --font-size-lg: 1.0625rem;  /* 17px */
+  --font-size-xl: 1.25rem;    /* 20px */
+  --font-size-2xl: 1.625rem;  /* 26px */
 
   --font-weight-normal: 400;
   --font-weight-medium: 500;
@@ -45,8 +59,8 @@
   --font-weight-bold: 700;
 
   --line-height-tight: 1.2;
-  --line-height-normal: 1.5;
-  --line-height-relaxed: 1.75;
+  --line-height-normal: 1.45;
+  --line-height-relaxed: 1.65;
 
   /* Spacing */
   --space-1: 0.25rem;
@@ -60,36 +74,43 @@
   --space-12: 3rem;
   --space-16: 4rem;
 
-  /* Border Radius */
-  --radius-sm: 4px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-xl: 16px;
-  --radius-2xl: 24px;
+  /* Apple Smooth Radii */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
+  --radius-2xl: 26px;
   --radius-full: 9999px;
 
-  /* Shadows */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
-  --shadow-glow-primary: 0 0 20px rgba(0, 212, 255, 0.3);
-  --shadow-glow-secondary: 0 0 20px rgba(255, 0, 170, 0.3);
+  /* Spring Physics & Motion Curves */
+  --ease-apple: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-fast: 150ms var(--ease-apple);
+  --transition-normal: 260ms var(--ease-apple);
+  --transition-spring: 450ms var(--ease-apple);
 
-  /* Transitions */
-  --transition-fast: 150ms ease;
-  --transition-normal: 250ms ease;
-  --transition-slow: 400ms ease;
+  /* Shadows & Ambient Glows */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.65);
+  --shadow-dock: 0 20px 48px -10px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.08);
+  --shadow-sheet: 0 28px 64px -12px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(255, 255, 255, 0.1);
+  --shadow-glow-primary: 0 0 24px -2px rgba(10, 132, 255, 0.45);
+  --shadow-glow-secondary: 0 0 24px -2px rgba(191, 90, 242, 0.45);
+  --shadow-glow-emerald: 0 0 20px -2px rgba(48, 209, 88, 0.45);
 
-  /* Z-Index */
+  /* Z-Index Hierarchy */
   --z-base: 0;
-  --z-dropdown: 100;
-  --z-sticky: 200;
-  --z-modal: 300;
-  --z-toast: 400;
+  --z-sticky: 100;
+  --z-dropdown: 200;
+  --z-dock: 300;
+  --z-modal: 400;
+  --z-toast: 500;
 
-  /* Layout */
-  --header-height: 56px;
-  --sidebar-width: 200px;
-  --action-bar-height: 64px;
-  --timeline-height: 120px;
+  /* Layout Dimensions */
+  --header-height: 52px;
+  --sidebar-width: 240px;
+  --action-bar-height: 60px;
+  --timeline-height: 128px;
 }

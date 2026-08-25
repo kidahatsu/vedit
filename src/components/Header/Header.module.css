@@ -1,46 +1,142 @@
+/* ==========================================================================
+   Apple Studio Header Styles
+   ========================================================================== */
+
 .header {
     display: flex;
     align-items: center;
     justify-content: space-between;
     height: var(--header-height);
     padding: 0 var(--space-4);
-    background: var(--color-bg-secondary);
+    background: rgba(12, 12, 16, 0.85);
+    backdrop-filter: blur(28px) saturate(180%);
+    -webkit-backdrop-filter: blur(28px) saturate(180%);
     border-bottom: 1px solid var(--color-border);
+    box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.4), var(--border-specular-top);
+    z-index: var(--z-sticky);
+}
+
+.leftGroup {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+}
+
+.centerGroup {
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .logo {
     display: flex;
     align-items: center;
-    gap: var(--space-3);
-    font-size: var(--font-size-lg);
-    font-weight: var(--font-weight-bold);
+    gap: var(--space-2);
+    cursor: default;
+}
+
+.logoBadge {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: var(--radius-sm);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.08);
 }
 
 .logoIcon {
-    width: 32px;
-    height: 32px;
+    width: 100%;
+    height: 100%;
 }
 
-.actions {
+.brandMeta {
     display: flex;
-    align-items: center;
-    gap: var(--space-2);
+    align-items: baseline;
+    gap: 6px;
 }
 
-.divider {
+.brandMeta :global(.gradient-text) {
+    font-size: var(--font-size-md);
+    letter-spacing: -0.02em;
+    font-weight: var(--font-weight-bold);
+}
+
+.proPill {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: var(--color-accent-primary);
+    background: rgba(10, 132, 255, 0.12);
+    border: 1px solid rgba(10, 132, 255, 0.25);
+    padding: 1px 5px;
+    border-radius: 4px;
+    line-height: 1.2;
+}
+
+.headerDivider {
     width: 1px;
-    height: 24px;
+    height: 18px;
     background: var(--color-border);
-    margin: 0 var(--space-2);
+    margin: 0 var(--space-1);
+}
+
+/* Hardware Engine Status Pill */
+.engineBadge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 22px;
+    padding: 0 8px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-full);
+    font-size: var(--font-size-2xs);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text-secondary);
+    letter-spacing: 0.02em;
+}
+
+.engineDotGreen {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: var(--color-accent-success);
+    box-shadow: 0 0 8px var(--color-accent-success);
+    animation: pulseDot 2s infinite ease-in-out;
+}
+
+.engineDotAmber {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: var(--color-accent-warning);
+}
+
+.engineIconGpu {
+    color: var(--color-accent-primary);
+}
+
+.engineIconCpu {
+    color: var(--color-accent-warning);
+}
+
+@keyframes pulseDot {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.3); opacity: 0.7; }
 }
 
 /* Save Status Indicator */
 .saveStatus {
     display: flex;
     align-items: center;
-    gap: var(--space-1);
-    margin-left: var(--space-3);
-    font-size: var(--font-size-xs);
+}
+
+.statusPill {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: var(--font-size-2xs);
     color: var(--color-text-muted);
 }
 
@@ -57,12 +153,60 @@
     color: var(--color-accent-error);
 }
 
-@keyframes spin {
-    from {
-        transform: rotate(0deg);
-    }
+.statusError {
+    color: var(--color-accent-error);
+}
 
-    to {
-        transform: rotate(360deg);
-    }
+/* Project Breadcrumbs */
+.projectBreadcrumb {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-full);
+    font-size: var(--font-size-2xs);
+}
+
+.projectLabel {
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+}
+
+.projectCount {
+    color: var(--color-text-secondary);
+}
+
+.actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.historyGroup {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    background: rgba(255, 255, 255, 0.03);
+    padding: 2px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--color-border);
+}
+
+.historyGroup button {
+    border: none;
+    background: transparent;
+    box-shadow: none;
+}
+
+.historyGroup button:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
 }

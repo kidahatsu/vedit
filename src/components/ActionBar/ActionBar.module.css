@@ -1,26 +1,100 @@
+/* ==========================================================================
+   Apple Studio Floating Action Dock Styles
+   ========================================================================== */
+
+.dockContainer {
+    padding: 0 var(--space-4) var(--space-3);
+    background: transparent;
+    z-index: var(--z-dock);
+    user-select: none;
+}
+
 .actionBar {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    height: var(--action-bar-height);
-    padding: 0 var(--space-4);
-    background: var(--color-bg-secondary);
-    border-top: 1px solid var(--color-border);
+    height: 52px;
+    padding: 0 var(--space-3);
+    background: rgba(18, 18, 24, 0.85);
+    backdrop-filter: blur(32px) saturate(190%);
+    -webkit-backdrop-filter: blur(32px) saturate(190%);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-dock), var(--border-specular-top);
+    overflow-x: auto;
+    gap: var(--space-2);
+}
+
+.leftCluster {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    overflow-x: auto;
 }
 
 .group {
     display: flex;
     align-items: center;
-    gap: var(--space-2);
+    gap: 3px;
+    flex-shrink: 0;
 }
 
 .divider {
     width: 1px;
-    height: 24px;
-    background: var(--color-border);
-    margin: 0 var(--space-2);
+    height: 20px;
+    background: rgba(255, 255, 255, 0.1);
+    margin: 0 4px;
+    flex-shrink: 0;
+}
+
+/* AI Studio Button with Shimmer */
+.aiBtn {
+    position: relative;
+    background: linear-gradient(135deg, rgba(191, 90, 242, 0.12) 0%, rgba(10, 132, 255, 0.12) 100%) !important;
+    border-color: rgba(191, 90, 242, 0.3) !important;
+    color: #ffffff !important;
+    font-weight: 500;
+}
+
+.aiBtn:hover:not(:disabled) {
+    background: linear-gradient(135deg, rgba(191, 90, 242, 0.22) 0%, rgba(10, 132, 255, 0.22) 100%) !important;
+    border-color: rgba(191, 90, 242, 0.5) !important;
+    box-shadow: 0 0 14px rgba(191, 90, 242, 0.3);
+}
+
+.aiSparkleIcon {
+    color: #bf5af2;
+}
+
+.aiCaptionsIcon {
+    color: #0a84ff;
+}
+
+/* Primary Export Action */
+.exportGroup {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    margin-left: auto;
 }
 
 .exportBtn {
-    padding: var(--space-3) var(--space-6);
+    height: 36px;
+    padding: 0 var(--space-4);
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    gap: 6px;
+    border-radius: var(--radius-md);
+    letter-spacing: -0.01em;
+}
+
+.exportZapBadge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.25);
+    margin-left: 2px;
 }

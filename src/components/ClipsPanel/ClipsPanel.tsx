@@ -5,9 +5,10 @@ import { useSelectedClip } from '../../store/selectors'
 import { formatTime } from '../../lib/utils'
 import { hasTransformsApplied } from '../../utils/videoTransforms'
 import { ClipActionsMenu } from './ClipActionsMenu'
-import styles from './ClipsPanel.module.css'
 import { reverseVideo } from '../../lib/ffmpeg'
 import { createClipFromFile } from '../../utils/clipCreation'
+import { sanitizeFilename } from '../../utils/validation'
+import styles from './ClipsPanel.module.css'
 
 export function ClipsPanel() {
     const clips = useEditorStore((state) => state.clips)
@@ -47,7 +48,7 @@ export function ClipsPanel() {
 
         const duration = clip.trimEnd - clip.trimStart
         if (duration > 10) {
-            if (!confirm(`This clip is ${Math.round(duration)}s long. Reversing long clips (>10s) may consume significant memory and crash the application. Do you want to proceed?`)) {
+            if (!confirm(`This clip is ${Math.round(duration)}s long. Reversing long clips (>10s) may consume significant memory. Proceed?`)) {
                 return
             }
         }
@@ -55,7 +56,6 @@ export function ClipsPanel() {
         setLoading(true)
         try {
             const reversedBlob = await reverseVideo(clip.file, clip.trimStart, clip.trimEnd)
-            // Create new file with meaningful name
             const nameParts = clip.name.split('.')
             const ext = nameParts.pop()
             const baseName = nameParts.join('.')
@@ -63,14 +63,9 @@ export function ClipsPanel() {
 
             const newFile = new File([reversedBlob], newName, { type: clip.file.type })
             await processFile(newFile)
-            // Note: processFile uses addClip which adds to end.
-            // If we want to selecting it or something, we'd need clip ID.
-            // createClipFromFile generates ID but returns it.
-            // But processFile consumes it.
-            // It's fine for now.
         } catch (error) {
             console.error('[ClipsPanel] Failed to reverse clip:', error)
-            alert('Failed to reverse clip. The browser might have run out of memory. Try using a shorter clip or lower resolution.')
+            alert('Failed to reverse clip. The browser might have run out of memory.')
         } finally {
             setLoading(false)
         }
@@ -80,15 +75,14 @@ export function ClipsPanel() {
         const clip = clips.find(c => c.id === id)
         if (!clip) return
 
-        // Create temporary anchor to trigger download
         const url = URL.createObjectURL(clip.file)
         const a = document.createElement('a')
         a.href = url
-        a.download = clip.name || `clip-${id}.mp4`
+        a.download = sanitizeFilename(clip.name || `clip-${id}.mp4`)
         document.body.appendChild(a)
         a.click()
         document.body.removeChild(a)
-        URL.revokeObjectURL(url)
+        setTimeout(() => URL.revokeObjectURL(url), 15000)
     }, [clips])
 
     const handleDrop = useCallback((e: React.DragEvent) => {
@@ -139,8 +133,13 @@ export function ClipsPanel() {
     ) : false
 
     return (
-        <aside className={styles.panel}>
-            <div className={styles.title}>Clips</div>
+        <aside className={styles.panel} aria-label="Media asset drawer">
+            <div className={styles.panelHeader}>
+                <span className={styles.title}>Media Library</span>
+                {clips.length > 0 && (
+                    <span className={styles.countBadge}>{clips.length}</span>
+                )}
+            </div>
 
             <input
                 ref={fileInputRef}
@@ -158,11 +157,20 @@ export function ClipsPanel() {
                     onDragOver={handleDragOver}
                     onDragLeave={handleDragLeave}
                     onClick={handleFileSelect}
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault()
+                            handleFileSelect()
+                        }
+                    }}
+                    role="button"
+                    tabIndex={0}
+                    aria-label="Import media files"
                 >
-                    <Upload size={32} className={styles.dropIcon} />
-                    <div>Drop videos here</div>
-                    <div style={{ fontSize: 'var(--font-size-xs)', marginTop: 'var(--space-1)' }}>
-                        or click to browse
+                    <Upload size={28} className={styles.dropIcon} />
+                    <div className={styles.dropTitle}>Import Media</div>
+                    <div className={styles.dropSubtitle}>
+                        Drop MP4/MOV or click to browse
                     </div>
                 </div>
             ) : (
@@ -178,31 +186,46 @@ export function ClipsPanel() {
                                 key={clip.id}
                                 className={`${styles.clip} ${selectedClipId === clip.id ? styles.clipSelected : ''}`}
                                 onClick={() => selectClip(clip.id)}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter' || e.key === ' ') {
+                                        e.preventDefault()
+                                        selectClip(clip.id)
+                                    }
+                                }}
                                 onContextMenu={(e) => handleContextMenu(e, clip.id)}
+                                role="button"
+                                tabIndex={0}
+                                aria-selected={selectedClipId === clip.id}
                             >
-                                {clip.thumbnailUrl ? (
-                                    <img
-                                        src={clip.thumbnailUrl}
-                                        alt={clip.name}
-                                        className={styles.thumbnail}
-                                    />
-                                ) : (
-                                    <div className={styles.thumbnailPlaceholder}>
-                                        <Film size={16} />
-                                    </div>
-                                )}
+                                <div className={styles.thumbnailContainer}>
+                                    {clip.thumbnailUrl ? (
+                                        <img
+                                            src={clip.thumbnailUrl}
+                                            alt={clip.name}
+                                            className={styles.thumbnail}
+                                        />
+                                    ) : (
+                                        <div className={styles.thumbnailPlaceholder}>
+                                            <Film size={14} />
+                                        </div>
+                                    )}
+                                    <span className={styles.clipDurationBadge}>
+                                        {formatTime(clip.duration)}
+                                    </span>
+                                </div>
                                 <div className={styles.clipInfo}>
-                                    <div className={styles.clipName}>{clip.name}</div>
+                                    <div className={styles.clipName} title={clip.name}>{clip.name}</div>
                                     <div className={styles.clipDuration}>
-                                        {formatTime(clip.trimEnd - clip.trimStart)} / {formatTime(clip.duration)}
+                                        {formatTime(clip.trimEnd - clip.trimStart)} selected
                                     </div>
                                 </div>
                                 <button
                                     className={styles.menuBtn}
                                     onClick={(e) => handleMenuOpen(e, clip.id)}
-                                    title="Actions"
+                                    title="Options"
+                                    aria-label="Clip options"
                                 >
-                                    <MoreVertical size={14} />
+                                    <MoreVertical size={13} />
                                 </button>
                                 <button
                                     className={styles.removeBtn}
@@ -210,16 +233,17 @@ export function ClipsPanel() {
                                         e.stopPropagation()
                                         removeClip(clip.id)
                                     }}
-                                    title="Remove"
+                                    title="Remove clip"
+                                    aria-label="Remove clip"
                                 >
-                                    <X size={14} />
+                                    <X size={13} />
                                 </button>
                             </div>
                         ))}
                     </div>
                     <button className={styles.addButton} onClick={handleFileSelect}>
-                        <Plus size={16} />
-                        Add Clip
+                        <Plus size={14} />
+                        <span>Add Media</span>
                     </button>
                     {activeMenu && activeClip && (
                         <ClipActionsMenu

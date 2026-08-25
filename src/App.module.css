@@ -1,33 +1,39 @@
+/* ==========================================================================
+   Apple Studio 3-Pane Professional Application Layout
+   ========================================================================== */
+
 .app {
     display: flex;
     flex-direction: column;
-    min-height: 100vh;
+    height: 100vh;
+    width: 100vw;
+    background-color: var(--color-bg-canvas);
+    overflow: hidden;
 }
 
-.main {
+/* 3-Pane Top Studio Workspace */
+.studioWorkspace {
+    flex: 1;
+    display: flex;
+    flex-direction: row;
+    overflow: hidden;
+    position: relative;
+    min-height: 0;
+}
+
+.centerCanvas {
     flex: 1;
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    background: radial-gradient(circle at 50% 45%, #12121a 0%, #060608 100%);
+    position: relative;
+    min-width: 0;
 }
 
-.content {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-}
-
-/* Tablet and desktop: side-by-side layout */
-@media (min-width: 768px) {
-    .main {
-        flex-direction: row;
-    }
-}
-
-/* Mobile: clips panel becomes a top strip */
-@media (max-width: 767px) {
-    .main {
+/* Tablet & Mobile Adaptations */
+@media (max-width: 900px) {
+    .studioWorkspace {
         flex-direction: column;
     }
 }

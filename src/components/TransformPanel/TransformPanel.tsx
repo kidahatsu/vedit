@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import {
     RotateCw,
     RotateCcw,
@@ -9,23 +10,20 @@ import {
     Smartphone,
     Monitor,
     RectangleVertical,
-    Gauge,
     Volume2,
-    VolumeX,
-    TrendingUp,
-    TrendingDown
+    VolumeX
 } from 'lucide-react'
 import { useEditorStore, type AspectRatioPreset, type TransformState } from '../../store/editorStore'
 import { useSelectedClip } from '../../store/selectors'
-import { hasTransformsApplied } from '../../utils/videoTransforms'
+import { hasTransformsApplied, calculateAspectRatioCrop } from '../../utils/videoTransforms'
 import styles from './TransformPanel.module.css'
 
 const ASPECT_RATIOS: { value: AspectRatioPreset; label: string; icon: React.ReactNode; width: number; height: number }[] = [
     { value: 'original', label: 'Original', icon: null, width: 16, height: 9 },
-    { value: '16:9', label: '16:9', icon: <Monitor size={16} />, width: 16, height: 9 },
-    { value: '9:16', label: '9:16', icon: <Smartphone size={16} />, width: 9, height: 16 },
-    { value: '1:1', label: '1:1', icon: <Square size={14} />, width: 1, height: 1 },
-    { value: '4:5', label: '4:5', icon: <RectangleVertical size={16} />, width: 4, height: 5 },
+    { value: '16:9', label: '16:9', icon: <Monitor size={14} />, width: 16, height: 9 },
+    { value: '9:16', label: '9:16', icon: <Smartphone size={14} />, width: 9, height: 16 },
+    { value: '1:1', label: '1:1', icon: <Square size={12} />, width: 1, height: 1 },
+    { value: '4:5', label: '4:5', icon: <RectangleVertical size={14} />, width: 4, height: 5 },
 ]
 
 const SPEED_PRESETS: { value: TransformState['speed']; label: string }[] = [
@@ -37,6 +35,7 @@ const SPEED_PRESETS: { value: TransformState['speed']; label: string }[] = [
 ]
 
 export function TransformPanel() {
+    const [localVolume, setLocalVolume] = useState<number | null>(null)
     const cropMode = useEditorStore((state) => state.cropMode)
     const updateTransform = useEditorStore((state) => state.updateTransform)
     const resetTransform = useEditorStore((state) => state.resetTransform)
@@ -49,9 +48,21 @@ export function TransformPanel() {
 
     const { id: clipId, transform } = selectedClip
     const hasTransforms = hasTransformsApplied(transform)
+    const currentVolume = localVolume !== null ? localVolume : transform.volume
 
     const handleAspectRatioChange = (ratio: AspectRatioPreset) => {
-        updateTransform(clipId, { aspectRatio: ratio })
+        const videoEl = document.querySelector('video')
+        const width = videoEl?.videoWidth || 1920
+        const height = videoEl?.videoHeight || 1080
+        const crop = calculateAspectRatioCrop(width, height, ratio)
+
+        updateTransform(clipId, {
+            aspectRatio: ratio,
+            cropX: crop.cropX,
+            cropY: crop.cropY,
+            cropWidth: crop.cropWidth,
+            cropHeight: crop.cropHeight,
+        })
     }
 
     const handleSpeedChange = (speed: TransformState['speed']) => {
@@ -84,111 +95,101 @@ export function TransformPanel() {
     }
 
     const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        updateTransform(clipId, { volume: Number(e.target.value) })
+        setLocalVolume(Number(e.target.value))
+    }
+
+    const handleVolumeCommit = () => {
+        if (localVolume !== null) {
+            updateTransform(clipId, { volume: localVolume })
+            setLocalVolume(null)
+        }
     }
 
     const handleMuteToggle = () => {
         updateTransform(clipId, { muted: !transform.muted })
     }
 
-    const handleFadeInChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        updateTransform(clipId, { fadeIn: Number(e.target.value) })
-    }
-
-    const handleFadeOutChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        updateTransform(clipId, { fadeOut: Number(e.target.value) })
-    }
-
     return (
-        <div className={styles.panel}>
+        <div className={styles.panel} role="toolbar" aria-label="Transform and inspector toolbar">
             {/* Aspect Ratio Section */}
             <div className={styles.section}>
                 <span className={styles.sectionLabel}>Aspect</span>
-                {ASPECT_RATIOS.map((ar) => (
-                    <button
-                        key={ar.value}
-                        className={`${styles.aspectBtn} ${transform.aspectRatio === ar.value ? styles.active : ''}`}
-                        onClick={() => handleAspectRatioChange(ar.value)}
-                        title={ar.value === 'original' ? 'Keep original aspect ratio' : `Change to ${ar.label}`}
-                    >
-                        {ar.value === 'original' ? (
-                            <div
-                                className={styles.aspectIcon}
-                                style={{ width: 20, height: 12, borderRadius: 2 }}
-                            />
-                        ) : (
-                            <div
-                                className={styles.aspectIcon}
-                                style={{
-                                    width: Math.round(ar.width * 1.5),
-                                    height: Math.round(ar.height * 1.5),
-                                    borderRadius: 2
-                                }}
-                            />
-                        )}
-                        <span className={styles.aspectLabel}>{ar.label}</span>
-                    </button>
-                ))}
+                <div className={styles.segmentedGroup}>
+                    {ASPECT_RATIOS.map((ar) => (
+                        <button
+                            key={ar.value}
+                            className={`${styles.aspectBtn} ${transform.aspectRatio === ar.value ? styles.active : ''}`}
+                            onClick={() => handleAspectRatioChange(ar.value)}
+                            title={ar.value === 'original' ? 'Original Aspect' : `Aspect ${ar.label}`}
+                        >
+                            {ar.value === 'original' ? (
+                                <div
+                                    className={styles.aspectIcon}
+                                    style={{ width: 16, height: 10, borderRadius: 1.5 }}
+                                />
+                            ) : (
+                                <div
+                                    className={styles.aspectIcon}
+                                    style={{
+                                        width: Math.round(ar.width * 1.2),
+                                        height: Math.round(ar.height * 1.2),
+                                        borderRadius: 1.5
+                                    }}
+                                />
+                            )}
+                            <span className={styles.aspectLabel}>{ar.label}</span>
+                        </button>
+                    ))}
+                </div>
             </div>
 
             <div className={styles.divider} />
 
-            {/* Rotate Section */}
+            {/* Transform Controls */}
             <div className={styles.section}>
-                <span className={styles.sectionLabel}>Rotate</span>
+                <span className={styles.sectionLabel}>Framing</span>
                 <button
                     className={styles.transformBtn}
                     onClick={handleRotateCCW}
-                    title="Rotate 90° counter-clockwise"
+                    title="Rotate 90° Counter-Clockwise"
+                    aria-label="Rotate CCW"
                 >
-                    <RotateCcw size={18} />
+                    <RotateCcw size={13} />
+                    <span>-90°</span>
                 </button>
                 <button
                     className={styles.transformBtn}
                     onClick={handleRotateCW}
-                    title="Rotate 90° clockwise"
+                    title="Rotate 90° Clockwise"
+                    aria-label="Rotate CW"
                 >
-                    <RotateCw size={18} />
+                    <RotateCw size={13} />
+                    <span>+90°</span>
                 </button>
-                {transform.rotation !== 0 && (
-                    <span className={styles.rotationIndicator}>
-                        {transform.rotation}°
-                    </span>
-                )}
-            </div>
-
-            <div className={styles.divider} />
-
-            {/* Flip Section */}
-            <div className={styles.section}>
-                <span className={styles.sectionLabel}>Flip</span>
                 <button
                     className={`${styles.transformBtn} ${transform.flipH ? styles.active : ''}`}
                     onClick={handleFlipH}
-                    title="Flip horizontal"
+                    title="Flip Horizontal"
+                    aria-label="Flip horizontal"
                 >
-                    <FlipHorizontal2 size={18} />
+                    <FlipHorizontal2 size={13} />
                 </button>
                 <button
                     className={`${styles.transformBtn} ${transform.flipV ? styles.active : ''}`}
                     onClick={handleFlipV}
-                    title="Flip vertical"
+                    title="Flip Vertical"
+                    aria-label="Flip vertical"
                 >
-                    <FlipVertical2 size={18} />
+                    <FlipVertical2 size={13} />
                 </button>
-            </div>
-
-            <div className={styles.divider} />
-
-            {/* Crop Section */}
-            <div className={styles.section}>
                 <button
-                    className={`${styles.cropToggle} ${cropMode ? styles.active : ''}`}
+                    className={`${styles.transformBtn} ${cropMode ? styles.active : ''}`}
                     onClick={toggleCropMode}
-                    title={cropMode ? 'Exit crop mode' : 'Enter crop mode'}
+                    title="Toggle Interactive Crop Box"
+                    aria-label="Crop mode"
                 >
-                    <Crop size={16} />
-                    {cropMode ? 'Done Cropping' : 'Crop'}
+                    <Crop size={13} />
+                    <span>Crop</span>
                 </button>
             </div>
 
@@ -196,92 +197,64 @@ export function TransformPanel() {
 
             {/* Speed Section */}
             <div className={styles.section}>
-                <span className={styles.sectionLabel}>
-                    <Gauge size={14} />
-                </span>
-                {SPEED_PRESETS.map((sp) => (
-                    <button
-                        key={sp.value}
-                        className={`${styles.speedBtn} ${transform.speed === sp.value ? styles.active : ''}`}
-                        onClick={() => handleSpeedChange(sp.value)}
-                        title={`${sp.label} speed`}
-                    >
-                        {sp.label}
-                    </button>
-                ))}
+                <span className={styles.sectionLabel}>Speed</span>
+                <div className={styles.segmentedGroup}>
+                    {SPEED_PRESETS.map((sp) => (
+                        <button
+                            key={sp.value}
+                            className={`${styles.speedBtn} ${transform.speed === sp.value ? styles.active : ''}`}
+                            onClick={() => handleSpeedChange(sp.value)}
+                            title={`Playback Speed ${sp.label}`}
+                        >
+                            {sp.label}
+                        </button>
+                    ))}
+                </div>
             </div>
 
             <div className={styles.divider} />
 
             {/* Audio Section */}
             <div className={styles.section}>
-                <span className={styles.sectionLabel}>
-                    Audio
-                </span>
-
-                <button
-                    className={`${styles.transformBtn} ${transform.muted ? styles.active : ''}`}
-                    onClick={handleMuteToggle}
-                    title={transform.muted ? "Unmute" : "Mute"}
-                >
-                    {transform.muted ? <VolumeX size={18} /> : <Volume2 size={18} />}
-                </button>
-
-                <div className={styles.rangeWrapper} title={`Volume: ${transform.volume}%`}>
-                    <input
-                        type="range"
-                        min="0"
-                        max="200"
-                        value={transform.volume}
-                        onChange={handleVolumeChange}
-                        disabled={transform.muted}
-                        className={styles.rangeInput}
-                    />
-                </div>
-
-                <div className={styles.fadeInputWrapper} title="Fade In (seconds)">
-                    <TrendingUp size={14} className={styles.fadeIcon} />
-                    <input
-                        type="number"
-                        min="0"
-                        max="10"
-                        step="0.1"
-                        value={transform.fadeIn}
-                        onChange={handleFadeInChange}
-                        className={styles.numberInput}
-                    />
-                    <span className={styles.unitLabel}>s</span>
-                </div>
-
-                <div className={styles.fadeInputWrapper} title="Fade Out (seconds)">
-                    <TrendingDown size={14} className={styles.fadeIcon} />
-                    <input
-                        type="number"
-                        min="0"
-                        max="10"
-                        step="0.1"
-                        value={transform.fadeOut}
-                        onChange={handleFadeOutChange}
-                        className={styles.numberInput}
-                    />
-                    <span className={styles.unitLabel}>s</span>
+                <span className={styles.sectionLabel}>Audio</span>
+                <div className={styles.audioGroup}>
+                    <button
+                        className={styles.transformBtn}
+                        onClick={handleMuteToggle}
+                        title={transform.muted ? 'Unmute Clip Audio' : 'Mute Clip Audio'}
+                        aria-label="Mute audio"
+                    >
+                        {transform.muted ? <VolumeX size={13} /> : <Volume2 size={13} />}
+                    </button>
+                    <div className={styles.sliderWrapper}>
+                        <input
+                            type="range"
+                            min="0"
+                            max="200"
+                            step="5"
+                            value={currentVolume}
+                            onChange={handleVolumeChange}
+                            onMouseUp={handleVolumeCommit}
+                            onTouchEnd={handleVolumeCommit}
+                            className={styles.slider}
+                            title={`Clip Volume: ${Math.round(currentVolume)}%`}
+                            aria-label="Volume slider"
+                        />
+                        <span className={styles.valueBadge}>{Math.round(currentVolume)}%</span>
+                    </div>
                 </div>
             </div>
 
-            {/* Reset */}
-            {hasTransforms && (
-                <>
-                    <div className={styles.divider} />
-                    <button
-                        className={styles.resetBtn}
-                        onClick={handleReset}
-                        title="Reset all transforms"
-                    >
-                        <ResetIcon size={14} />
-                        Reset
-                    </button>
-                </>
-            )}
+            {/* Reset Button */}
+            <button
+                className={styles.resetBtn}
+                onClick={handleReset}
+                disabled={!hasTransforms && !cropMode}
+                title="Reset all transforms to default"
+            >
+                <ResetIcon size={12} />
+                <span>Reset</span>
+            </button>
         </div>
     )
 }

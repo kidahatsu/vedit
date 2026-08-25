@@ -36,6 +36,11 @@ export interface TransformState {
     muted: boolean
     fadeIn: number   // Fade in duration in seconds
     fadeOut: number  // Fade out duration in seconds
+
+    // WebGPU Color grading settings
+    brightness?: number // -0.5 to 0.5
+    contrast?: number   // 0.5 to 2.0
+    saturation?: number // 0.0 to 2.5
 }
 
 /**
@@ -55,6 +60,9 @@ export const DEFAULT_TRANSFORM: TransformState = {
     muted: false,
     fadeIn: 0,
     fadeOut: 0,
+    brightness: 0,
+    contrast: 1,
+    saturation: 1,
 }
 
 /**

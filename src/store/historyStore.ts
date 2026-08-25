@@ -1,36 +1,29 @@
 /**
- * @fileoverview History store with undo/redo functionality using zundo temporal middleware.
- * Provides temporal state tracking for the editor store.
+ * @fileoverview History-tracked state management using Zustand + Zundo.
+ *
+ * All state in this store is tracked by Zundo for automatic undo/redo history.
+ * Any action dispatched here creates a history checkpoint that can be undone.
  */
 
-import { create } from 'zustand'
+import { create, useStore } from 'zustand'
 import { temporal } from 'zundo'
 import type { Clip, TransformState } from './types'
 import { DEFAULT_TRANSFORM } from './types'
-import { generateId } from '../lib/utils'
 
-// Re-export types
-export type { Clip, TransformState }
-export { DEFAULT_TRANSFORM }
-
-/**
- * The undoable portion of editor state.
- * Excludes transient state like isLoading, splitMode, cropMode, seekPreviewTime.
- */
-export interface UndoableState {
+export interface HistoryTrackedState {
     clips: Clip[]
     selectedClipId: string | null
 }
 
-/**
- * Actions for modifying undoable state.
- */
-export interface UndoableActions {
+export interface HistoryActions {
     // Clip management
     addClip: (clip: Clip) => void
     removeClip: (id: string) => void
     selectClip: (id: string | null) => void
     updateClipFile: (id: string, file: File) => void
+    duplicateClip: (id: string) => void
+    revertClip: (id: string) => void
+    revertAllClips: () => void
 
     // Trim operations
     updateClipTrim: (id: string, trimStart: number, trimEnd: number) => void
@@ -41,48 +34,39 @@ export interface UndoableActions {
     updateSplitPoint: (id: string, oldTime: number, newTime: number) => void
     clearSplitPoints: (id: string) => void
 
-    // Clip ordering
-    reorderClips: (fromIndex: number, toIndex: number) => void
-
     // Transform operations
     updateTransform: (id: string, transform: Partial<TransformState>) => void
     resetTransform: (id: string) => void
 
-    // Clip quick actions
-    revertClip: (id: string) => void
-    duplicateClip: (id: string) => void
-    revertAllClips: () => void
+    // Multi-clip operations
+    reorderClips: (fromIndex: number, toIndex: number) => void
 
-    // Reset
+    // Project-level reset
     reset: () => void
+    loadState: (state: HistoryTrackedState) => void
 }
 
-export type UndoableStore = UndoableState & UndoableActions
+export type HistoryStore = HistoryTrackedState & HistoryActions
 
-/**
- * Initial undoable state.
- */
-const initialState: UndoableState = {
+const initialState: HistoryTrackedState = {
     clips: [],
     selectedClipId: null,
 }
 
-// Serialize clip for comparison (excluding File objects)
-const serializeClip = (c: Clip) => ({
-    id: c.id,
-    name: c.name,
-    duration: c.duration,
-    trimStart: c.trimStart,
-    trimEnd: c.trimEnd,
-    splitPoints: c.splitPoints,
-    transform: c.transform,
-})
+function serializeClip(c: Clip) {
+    return {
+        id: c.id,
+        name: c.name,
+        duration: c.duration,
+        trimStart: c.trimStart,
+        trimEnd: c.trimEnd,
+        splitPoints: c.splitPoints,
+        transform: c.transform,
+        fileSig: `${c.file?.name}-${c.file?.size}-${c.file?.lastModified ?? 0}`,
+    }
+}
 
-/**
- * History store with undo/redo capabilities.
- * Uses zundo for temporal state management.
- */
-export const useHistoryStore = create<UndoableStore>()(
+export const useHistoryStore = create<HistoryStore>()(
     temporal(
         (set) => ({
             ...initialState,
@@ -94,23 +78,97 @@ export const useHistoryStore = create<UndoableStore>()(
                 })),
 
             removeClip: (id) =>
-                set((state) => ({
-                    clips: (state?.clips ?? []).filter((c) => c.id !== id),
-                    selectedClipId: state?.selectedClipId === id ? null : state?.selectedClipId ?? null,
-                })),
+                set((state) => {
+                    const currentClips = state?.clips ?? []
+                    const removedIdx = currentClips.findIndex((c) => c.id === id)
+                    const nextClips = currentClips.filter((c) => c.id !== id)
+                    let nextSelectedId = state?.selectedClipId
+                    if (state?.selectedClipId === id) {
+                        if (nextClips.length === 0) {
+                            nextSelectedId = null
+                        } else {
+                            const newIdx = Math.min(Math.max(0, removedIdx), nextClips.length - 1)
+                            nextSelectedId = nextClips[newIdx].id
+                        }
+                    }
+                    return {
+                        clips: nextClips,
+                        selectedClipId: nextSelectedId,
+                    }
+                }),
 
             selectClip: (id) => set({ selectedClipId: id }),
 
             updateClipFile: (id, file) =>
                 set((state) => ({
-                    clips: state.clips.map((c) => (c.id === id ? { ...c, file } : c)),
+                    clips: (state?.clips ?? []).map((c) => (c.id === id ? { ...c, file } : c)),
+                })),
+
+            duplicateClip: (id) =>
+                set((state) => {
+                    const currentClips = state?.clips ?? []
+                    const clipIdx = currentClips.findIndex((c) => c.id === id)
+                    if (clipIdx === -1) return state
+                    const original = currentClips[clipIdx]
+                    const nameParts = original.name.split('.')
+                    const ext = nameParts.length > 1 ? nameParts.pop() : ''
+                    const baseName = nameParts.join('.')
+                    const duplicatedName = ext ? `${baseName} (copy).${ext}` : `${baseName} (copy)`
+                    const duplicateId = `${original.id}-copy-${Date.now()}`
+                    const duplicatedClip: Clip = {
+                        ...original,
+                        id: duplicateId,
+                        name: duplicatedName,
+                        splitPoints: [...original.splitPoints],
+                        transform: { ...original.transform },
+                    }
+                    const nextClips = [...currentClips]
+                    nextClips.splice(clipIdx + 1, 0, duplicatedClip)
+                    return {
+                        clips: nextClips,
+                        selectedClipId: duplicateId,
+                    }
+                }),
+
+            revertClip: (id) =>
+                set((state) => ({
+                    clips: (state?.clips ?? []).map((c) =>
+                        c.id === id
+                            ? {
+                                  ...c,
+                                  trimStart: 0,
+                                  trimEnd: c.duration,
+                                  splitPoints: [],
+                                  transform: { ...DEFAULT_TRANSFORM },
+                              }
+                            : c
+                    ),
+                })),
+
+            revertAllClips: () =>
+                set((state) => ({
+                    clips: (state?.clips ?? []).map((c) => ({
+                        ...c,
+                        trimStart: 0,
+                        trimEnd: c.duration,
+                        splitPoints: [],
+                        transform: { ...DEFAULT_TRANSFORM },
+                    })),
                 })),
 
             updateClipTrim: (id, trimStart, trimEnd) =>
                 set((state) => ({
-                    clips: (state?.clips ?? []).map((c) =>
-                        c.id === id ? { ...c, trimStart, trimEnd } : c
-                    ),
+                    clips: (state?.clips ?? []).map((c) => {
+                        if (c.id !== id) return c
+                        const validTrimStart = Math.max(0, Math.min(trimStart, c.duration - 0.05))
+                        const validTrimEnd = Math.min(c.duration, Math.max(trimEnd, validTrimStart + 0.05))
+                        return {
+                            ...c,
+                            trimStart: validTrimStart,
+                            trimEnd: validTrimEnd,
+                            splitPoints: c.splitPoints.filter((t) => t > validTrimStart && t < validTrimEnd),
+                        }
+                    }),
                 })),
 
             addSplitPoint: (id, time) =>
@@ -139,13 +197,10 @@ export const useHistoryStore = create<UndoableStore>()(
                 set((state) => ({
                     clips: (state?.clips ?? []).map((c) => {
                         if (c.id !== id) return c
-                        const filtered = c.splitPoints.filter((t) => t !== oldTime)
-                        if (newTime <= c.trimStart || newTime >= c.trimEnd)
-                            return { ...c, splitPoints: filtered }
-                        if (filtered.includes(newTime)) return { ...c, splitPoints: filtered }
+                        const updated = c.splitPoints.map((t) => (t === oldTime ? newTime : t))
                         return {
                             ...c,
-                            splitPoints: [...filtered, newTime].sort((a, b) => a - b),
+                            splitPoints: updated.sort((a, b) => a - b),
                         }
                     }),
                 })),
@@ -156,14 +211,6 @@ export const useHistoryStore = create<UndoableStore>()(
                         c.id === id ? { ...c, splitPoints: [] } : c
                     ),
                 })),
-
-            reorderClips: (fromIndex, toIndex) =>
-                set((state) => {
-                    const clips = [...(state?.clips ?? [])]
-                    const [removed] = clips.splice(fromIndex, 1)
-                    clips.splice(toIndex, 0, removed)
-                    return { clips }
-                }),
 
             updateTransform: (id, transform) =>
                 set((state) => ({
@@ -181,69 +228,47 @@ export const useHistoryStore = create<UndoableStore>()(
                     ),
                 })),
 
-            revertClip: (id) =>
-                set((state) => ({
-                    clips: (state?.clips ?? []).map((c) =>
-                        c.id === id
-                            ? {
-                                ...c,
-                                trimStart: 0,
-                                trimEnd: c.duration,
-                                splitPoints: [],
-                                transform: { ...DEFAULT_TRANSFORM },
-                            }
-                            : c
-                    ),
-                })),
-
-            duplicateClip: (id) =>
+            reorderClips: (fromIndex, toIndex) =>
                 set((state) => {
-                    const clips = state?.clips ?? []
-                    const clipIndex = clips.findIndex((c) => c.id === id)
-                    if (clipIndex === -1) return { clips }
-
-                    const originalClip = clips[clipIndex]
-                    const newClip: Clip = {
-                        ...originalClip,
-                        id: generateId(),
-                        name: originalClip.name.replace(/\.([^.]+)$/, ' (copy).$1'),
+                    const currentClips = state?.clips ?? []
+                    if (
+                        fromIndex < 0 ||
+                        fromIndex >= currentClips.length ||
+                        toIndex < 0 ||
+                        toIndex >= currentClips.length
+                    ) {
+                        return state
                     }
-
-                    const newClips = [...clips]
-                    newClips.splice(clipIndex + 1, 0, newClip)
-
-                    return {
-                        clips: newClips,
-                        selectedClipId: newClip.id,
-                    }
+                    const newClips = [...currentClips]
+                    const [movedClip] = newClips.splice(fromIndex, 1)
+                    newClips.splice(toIndex, 0, movedClip)
+                    return { clips: newClips }
                 }),
 
-            revertAllClips: () =>
-                set((state) => ({
-                    clips: (state?.clips ?? []).map((c) => ({
-                        ...c,
-                        trimStart: 0,
-                        trimEnd: c.duration,
-                        splitPoints: [],
-                        transform: { ...DEFAULT_TRANSFORM },
-                    })),
-                })),
-
             reset: () => set(initialState),
+
+            loadState: (loaded) =>
+                set({
+                    clips: loaded.clips,
+                    selectedClipId: loaded.selectedClipId,
+                }),
         }),
         {
-            // Limit history to 50 states to prevent memory issues
             limit: 50,
-
-            // Equality function to detect meaningful changes
+            partialize: (state) => ({
+                clips: state.clips,
+                selectedClipId: state.selectedClipId,
+            }),
             equality: (pastState, currentState) => {
-                const pastClips = pastState.clips.map(serializeClip)
-                const currentClips = currentState.clips.map(serializeClip)
+                if (pastState.clips.length !== currentState.clips.length) return false
 
-                return (
-                    JSON.stringify(pastClips) === JSON.stringify(currentClips) &&
-                    pastState.selectedClipId === currentState.selectedClipId
-                )
+                for (let i = 0; i < pastState.clips.length; i++) {
+                    const p = serializeClip(pastState.clips[i])
+                    const c = serializeClip(currentState.clips[i])
+                    if (JSON.stringify(p) !== JSON.stringify(c)) return false
+                }
+
+                return pastState.selectedClipId === currentState.selectedClipId
             },
         }
     )
@@ -251,7 +276,6 @@ export const useHistoryStore = create<UndoableStore>()(
 
 /**
  * Get the temporal API for undo/redo operations.
- * zundo attaches a .temporal property to the store.
  */
 export function useHistoryActions() {
     const temporalStore = useHistoryStore.temporal.getState()
@@ -269,12 +293,9 @@ export function useHistoryActions() {
  * Hook to get reactive undo/redo state.
  */
 export function useCanUndo(): boolean {
-    // Access temporal state reactively via store subscription
-    const pastStates = useHistoryStore.temporal.getState().pastStates
-    return pastStates.length > 0
+    return useStore(useHistoryStore.temporal, (state) => state.pastStates.length > 0)
 }
 
 export function useCanRedo(): boolean {
-    const futureStates = useHistoryStore.temporal.getState().futureStates
-    return futureStates.length > 0
+    return useStore(useHistoryStore.temporal, (state) => state.futureStates.length > 0)
 }

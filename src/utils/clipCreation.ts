@@ -60,7 +60,14 @@ export async function createClipFromFile(file: File): Promise<Clip | null> {
                 const ctx = canvas.getContext('2d')
                 if (ctx) {
                     ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
-                    clip.thumbnailUrl = canvas.toDataURL('image/jpeg', 0.7)
+                    canvas.toBlob((blob) => {
+                        if (blob) {
+                            clip.thumbnailUrl = URL.createObjectURL(blob)
+                        }
+                        cleanup()
+                        resolve(clip)
+                    }, 'image/jpeg', 0.7)
+                    return
                 }
             } catch (e) {
                 console.warn('[createClipFromFile] Failed to generate thumbnail:', e)

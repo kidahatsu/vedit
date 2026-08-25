@@ -46,7 +46,7 @@ describe('storage.ts', () => {
     const mockClip: Clip = {
         id: 'clip-1',
         name: 'test.mp4',
-        file: new File([''], 'test.mp4', { type: 'video/mp4' }),
+        file: new File(['dummy-bytes'], 'test.mp4', { type: 'video/mp4' }),
         duration: 10,
         thumbnailUrl: null,
         trimStart: 0,
@@ -85,7 +85,7 @@ describe('storage.ts', () => {
         const storedClip = {
             id: 'clip-1',
             projectId: 'default-project',
-            file: new Blob([''], { type: 'video/mp4' }),
+            file: new Blob(['dummy-video-bytes'], { type: 'video/mp4' }),
             name: 'test.mp4',
             duration: 10,
             transform: DEFAULT_TRANSFORM,

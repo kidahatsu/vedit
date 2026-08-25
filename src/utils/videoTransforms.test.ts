@@ -4,6 +4,7 @@ import {
     calculateCropBoxStyle,
     hasCropApplied,
     hasTransformsApplied,
+    calculateAspectRatioCrop,
 } from './videoTransforms'
 import { DEFAULT_TRANSFORM, type TransformState } from '../store/editorStore'
 
@@ -70,6 +71,58 @@ describe('calculateCropBoxStyle', () => {
             width: '50%',
             height: '60%',
         })
+    })
+})
+
+describe('calculateAspectRatioCrop', () => {
+    it('returns full frame for original aspect ratio', () => {
+        expect(calculateAspectRatioCrop(1920, 1080, 'original')).toEqual({
+            cropX: 0,
+            cropY: 0,
+            cropWidth: 1,
+            cropHeight: 1,
+        })
+    })
+
+    it('returns full frame when video matches target aspect ratio', () => {
+        expect(calculateAspectRatioCrop(1920, 1080, '16:9')).toEqual({
+            cropX: 0,
+            cropY: 0,
+            cropWidth: 1,
+            cropHeight: 1,
+        })
+    })
+
+    it('calculates accurate centered 9:16 crop on 16:9 video', () => {
+        const crop = calculateAspectRatioCrop(1920, 1080, '9:16')
+        expect(crop.cropHeight).toBe(1)
+        expect(crop.cropWidth).toBeCloseTo(0.3164, 3)
+        expect(crop.cropX).toBeCloseTo(0.3418, 3)
+        expect(crop.cropY).toBe(0)
+    })
+
+    it('calculates accurate centered 1:1 square crop on 16:9 video', () => {
+        const crop = calculateAspectRatioCrop(1920, 1080, '1:1')
+        expect(crop.cropHeight).toBe(1)
+        expect(crop.cropWidth).toBeCloseTo(0.5625, 3)
+        expect(crop.cropX).toBeCloseTo(0.2188, 3)
+        expect(crop.cropY).toBe(0)
+    })
+
+    it('calculates accurate centered 4:5 social crop on 16:9 video', () => {
+        const crop = calculateAspectRatioCrop(1920, 1080, '4:5')
+        expect(crop.cropHeight).toBe(1)
+        expect(crop.cropWidth).toBeCloseTo(0.45, 2)
+        expect(crop.cropX).toBeCloseTo(0.275, 2)
+        expect(crop.cropY).toBe(0)
+    })
+
+    it('calculates accurate centered 16:9 landscape crop on 9:16 portrait video', () => {
+        const crop = calculateAspectRatioCrop(1080, 1920, '16:9')
+        expect(crop.cropWidth).toBe(1)
+        expect(crop.cropHeight).toBeCloseTo(0.3164, 3)
+        expect(crop.cropX).toBe(0)
+        expect(crop.cropY).toBeCloseTo(0.3418, 3)
     })
 })
 

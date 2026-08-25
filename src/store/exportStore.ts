@@ -25,14 +25,19 @@ export const useExportStore = create<ExportState>((set, get) => ({
     outputUrl: null,
     error: null,
 
-    startExport: () =>
+    startExport: () => {
+        const { outputUrl } = get()
+        if (outputUrl) {
+            URL.revokeObjectURL(outputUrl)
+        }
         set({
             status: 'loading-ffmpeg',
             progress: 0,
             message: 'Loading video engine...',
             outputUrl: null,
             error: null
-        }),
+        })
+    },
 
     setLoadingFFmpeg: () =>
         set({
@@ -48,13 +53,18 @@ export const useExportStore = create<ExportState>((set, get) => ({
             message
         }),
 
-    setComplete: (outputUrl) =>
+    setComplete: (outputUrl) => {
+        const currentUrl = get().outputUrl
+        if (currentUrl && currentUrl !== outputUrl) {
+            URL.revokeObjectURL(currentUrl)
+        }
         set({
             status: 'complete',
             progress: 100,
             message: 'Export complete!',
             outputUrl
-        }),
+        })
+    },
 
     setError: (error) =>
         set({

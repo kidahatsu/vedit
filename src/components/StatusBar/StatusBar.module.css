@@ -1,0 +1,55 @@
+/* ==========================================================================
+   Apple Studio Bottom Status & Metadata Bar
+   ========================================================================== */
+
+.statusBar {
+    height: 26px;
+    background: rgba(10, 10, 14, 0.95);
+    border-top: 1px solid var(--color-border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 var(--space-4);
+    font-size: 11px;
+    color: var(--color-text-muted);
+    user-select: none;
+    flex-shrink: 0;
+    z-index: var(--z-sticky);
+}
+
+.leftGroup, .centerGroup, .rightGroup {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+}
+
+.statusItem {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.engineDot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: var(--color-accent-success);
+    box-shadow: 0 0 6px var(--color-accent-success);
+}
+
+.statusHighlight {
+    color: var(--color-text-secondary);
+    font-weight: 500;
+}
+
+.mono {
+    font-family: var(--font-mono);
+    color: var(--color-text-primary);
+    font-weight: 500;
+}
+
+.divider {
+    width: 1px;
+    height: 12px;
+    background: rgba(255, 255, 255, 0.1);
+}

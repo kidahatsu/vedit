@@ -1,4 +1,5 @@
-import { Scissors, Link, RotateCcw, Download, Split, Rewind, Image, Music, Wand2 } from 'lucide-react'
+import { isGPUExportSupported, exportVideoWithWebGPU } from '../../lib/webgpu/gpuExport'
+import { Scissors, Link, RotateCcw, Download, Split, Rewind, Image, Music, Wand2, Sparkles, Captions } from 'lucide-react'
 import { useEditorStore, type Clip } from '../../store/editorStore'
 import { useSelectedClip, useHasClips, useCanMerge, useCanSplit, useSelectedClipHasModifications } from '../../store/selectors'
 import { useExportStore } from '../../store/exportStore'
@@ -10,6 +11,8 @@ import { sanitizeFilename } from '../../utils/validation'
 import { type ExportPreset } from '../../store/exportPresets'
 import { type ExportMode } from '../../App'
 import { saveProject } from '../../lib/storage'
+import { detectSilenceSplitPoints } from '../../lib/ai/silenceDetection'
+import { generateSubtitlesWebGPU, formatAsSRT } from '../../lib/ai/subtitles'
 import styles from './ActionBar.module.css'
 
 interface ActionBarProps {
@@ -24,6 +27,7 @@ export function ActionBar({ onOpenExportModal }: ActionBarProps) {
     const selectClip = useEditorStore((state) => state.selectClip)
     const setLoading = useEditorStore((state) => state.setLoading)
     const updateClipFile = useEditorStore((state) => state.updateClipFile)
+    const addSplitPoint = useEditorStore((state) => state.addSplitPoint)
     const { startExport, setProcessing, setComplete, setError } = useExportStore()
 
     const selectedClip = useSelectedClip()
@@ -45,42 +49,104 @@ export function ActionBar({ onOpenExportModal }: ActionBarProps) {
                 const needsTransform = hasTransformsApplied(selectedClip.transform) ||
                     (preset.aspectRatio !== 'original' && preset.resolution.width > 0)
 
+                const gpuSupported = await isGPUExportSupported().catch(() => false)
+
                 if (needsTransform) {
                     const { transform } = selectedClip
-                    // Use preset aspect ratio if not 'original', otherwise use clip's transform
                     const aspectRatio = preset.aspectRatio !== 'original'
                         ? preset.aspectRatio
                         : transform.aspectRatio
 
-                    blob = await transformVideo(
-                        selectedClip.file,
-                        selectedClip.trimStart,
-                        selectedClip.trimEnd,
-                        {
-                            aspectRatio,
-                            rotation: transform.rotation,
-                            flipH: transform.flipH,
-                            flipV: transform.flipV,
-                            speed: transform.speed,
-                            crop: {
-                                x: transform.cropX,
-                                y: transform.cropY,
-                                width: transform.cropWidth,
-                                height: transform.cropHeight
+                    if (gpuSupported && transform.speed === 1 && aspectRatio === 'original') {
+                        // High-speed WebGPU shader pipeline
+                        blob = await exportVideoWithWebGPU({
+                            file: selectedClip.file,
+                            startTime: selectedClip.trimStart,
+                            endTime: selectedClip.trimEnd,
+                            transform: {
+                                rotation: transform.rotation,
+                                flipH: transform.flipH,
+                                flipV: transform.flipV,
+                                cropX: transform.cropX,
+                                cropY: transform.cropY,
+                                cropWidth: transform.cropWidth,
+                                cropHeight: transform.cropHeight,
                             },
-                            // Pass target resolution from preset
-                            targetWidth: preset.resolution.width > 0 ? preset.resolution.width : undefined,
-                            targetHeight: preset.resolution.height > 0 ? preset.resolution.height : undefined,
-                        },
-                        (progress, message) => setProcessing(progress, message)
-                    )
+                            width: preset.resolution.width > 0 ? preset.resolution.width : undefined,
+                            height: preset.resolution.height > 0 ? preset.resolution.height : undefined,
+                            onProgress: (progress, message) => setProcessing(progress, message),
+                        }).catch(async (gpuErr) => {
+                            console.warn('[ActionBar] WebGPU export fallback to FFmpeg:', gpuErr)
+                            return transformVideo(
+                                selectedClip.file,
+                                selectedClip.trimStart,
+                                selectedClip.trimEnd,
+                                {
+                                    aspectRatio,
+                                    rotation: transform.rotation,
+                                    flipH: transform.flipH,
+                                    flipV: transform.flipV,
+                                    speed: transform.speed,
+                                    crop: {
+                                        x: transform.cropX,
+                                        y: transform.cropY,
+                                        width: transform.cropWidth,
+                                        height: transform.cropHeight
+                                    },
+                                    targetWidth: preset.resolution.width > 0 ? preset.resolution.width : undefined,
+                                    targetHeight: preset.resolution.height > 0 ? preset.resolution.height : undefined,
+                                },
+                                (progress, message) => setProcessing(progress, message)
+                            )
+                        })
+                    } else {
+                        blob = await transformVideo(
+                            selectedClip.file,
+                            selectedClip.trimStart,
+                            selectedClip.trimEnd,
+                            {
+                                aspectRatio,
+                                rotation: transform.rotation,
+                                flipH: transform.flipH,
+                                flipV: transform.flipV,
+                                speed: transform.speed,
+                                crop: {
+                                    x: transform.cropX,
+                                    y: transform.cropY,
+                                    width: transform.cropWidth,
+                                    height: transform.cropHeight
+                                },
+                                targetWidth: preset.resolution.width > 0 ? preset.resolution.width : undefined,
+                                targetHeight: preset.resolution.height > 0 ? preset.resolution.height : undefined,
+                            },
+                            (progress, message) => setProcessing(progress, message)
+                        )
+                    }
                 } else {
-                    blob = await trimVideo(
-                        selectedClip.file,
-                        selectedClip.trimStart,
-                        selectedClip.trimEnd,
-                        (progress, message) => setProcessing(progress, message)
-                    )
+                    if (gpuSupported) {
+                        blob = await exportVideoWithWebGPU({
+                            file: selectedClip.file,
+                            startTime: selectedClip.trimStart,
+                            endTime: selectedClip.trimEnd,
+                            width: preset.resolution.width > 0 ? preset.resolution.width : undefined,
+                            height: preset.resolution.height > 0 ? preset.resolution.height : undefined,
+                            onProgress: (progress, message) => setProcessing(progress, message),
+                        }).catch(async () => {
+                            return trimVideo(
+                                selectedClip.file,
+                                selectedClip.trimStart,
+                                selectedClip.trimEnd,
+                                (progress, message) => setProcessing(progress, message)
+                            )
+                        })
+                    } else {
+                        blob = await trimVideo(
+                            selectedClip.file,
+                            selectedClip.trimStart,
+                            selectedClip.trimEnd,
+                            (progress, message) => setProcessing(progress, message)
+                        )
+                    }
                 }
 
                 const url = URL.createObjectURL(blob)
@@ -146,7 +212,7 @@ export function ActionBar({ onOpenExportModal }: ActionBarProps) {
                     document.body.appendChild(a)
                     a.click()
                     document.body.removeChild(a)
-                    URL.revokeObjectURL(url)
+                    setTimeout(() => URL.revokeObjectURL(url), 15000)
                 })
 
                 setComplete('') // No single URL, files already downloaded
@@ -170,6 +236,7 @@ export function ActionBar({ onOpenExportModal }: ActionBarProps) {
     const handleReverse = async () => {
         if (!selectedClip) return
 
+        const activeClipId = selectedClip.id
         const duration = selectedClip.trimEnd - selectedClip.trimStart
         if (duration > 10) {
             if (!confirm(`This clip is ${Math.round(duration)}s long. Reversing long clips (>10s) may consume significant memory and crash the application. Do you want to proceed?`)) {
@@ -180,6 +247,12 @@ export function ActionBar({ onOpenExportModal }: ActionBarProps) {
         setLoading(true)
         try {
             const reversedBlob = await reverseVideo(selectedClip.file, selectedClip.trimStart, selectedClip.trimEnd)
+            const currentSelected = useEditorStore.getState().selectedClipId
+            const clipStillExists = useEditorStore.getState().clips.some((c) => c.id === activeClipId)
+            if (!clipStillExists || currentSelected !== activeClipId) {
+                return
+            }
+
             // Create new file with meaningful name
             const nameParts = selectedClip.name.split('.')
             const ext = nameParts.pop()
@@ -221,7 +294,7 @@ export function ActionBar({ onOpenExportModal }: ActionBarProps) {
             document.body.appendChild(a)
             a.click()
             document.body.removeChild(a)
-            URL.revokeObjectURL(url)
+            setTimeout(() => URL.revokeObjectURL(url), 15000)
 
             setComplete('')
         } catch (error) {
@@ -264,7 +337,7 @@ export function ActionBar({ onOpenExportModal }: ActionBarProps) {
             document.body.appendChild(aAudio)
             aAudio.click()
             document.body.removeChild(aAudio)
-            URL.revokeObjectURL(audioUrl)
+            setTimeout(() => URL.revokeObjectURL(audioUrl), 15000)
 
             // Download Video
             const videoUrl = URL.createObjectURL(videoBlob)
@@ -274,7 +347,7 @@ export function ActionBar({ onOpenExportModal }: ActionBarProps) {
             document.body.appendChild(aVideo)
             aVideo.click()
             document.body.removeChild(aVideo)
-            URL.revokeObjectURL(videoUrl)
+            setTimeout(() => URL.revokeObjectURL(videoUrl), 15000)
 
             setComplete('')
         } catch (error) {
@@ -289,6 +362,8 @@ export function ActionBar({ onOpenExportModal }: ActionBarProps) {
     const handleFixVisibility = async () => {
         if (!selectedClip) return
 
+        const activeClipId = selectedClip.id
+        const activeClipName = selectedClip.name
         try {
             startExport()
             setLoading(true)
@@ -298,8 +373,15 @@ export function ActionBar({ onOpenExportModal }: ActionBarProps) {
                 setProcessing(progress, message)
             })
 
-            const fixedFile = new File([blob], selectedClip.name, { type: 'video/mp4' })
-            updateClipFile(selectedClip.id, fixedFile)
+            const currentSelected = useEditorStore.getState().selectedClipId
+            const clipStillExists = useEditorStore.getState().clips.some((c) => c.id === activeClipId)
+            if (!clipStillExists || currentSelected !== activeClipId) {
+                setComplete('')
+                return
+            }
+
+            const fixedFile = new File([blob], activeClipName, { type: 'video/mp4' })
+            updateClipFile(activeClipId, fixedFile)
 
             // Explicitly trigger save to ensure persistence before any other action
             try {
@@ -310,8 +392,6 @@ export function ActionBar({ onOpenExportModal }: ActionBarProps) {
                 console.warn('[ActionBar] Immediate save failed, relying on auto-save:', saveError)
             }
 
-            setComplete('') // Success without download
-            // window.location.reload() -> Removed! VideoPlayer now reacts to file change.
         } catch (error) {
             console.error('[ActionBar] Failed to transcode video:', error)
             setError('Transcoding failed. Please try a different video format.')
@@ -320,124 +400,232 @@ export function ActionBar({ onOpenExportModal }: ActionBarProps) {
         }
     }
 
+    const handleAutoCutSilence = async () => {
+        if (!selectedClip) return
+
+        const activeClipId = selectedClip.id
+        setLoading(true)
+        try {
+            const splitPoints = await detectSilenceSplitPoints(selectedClip.file)
+            const currentSelected = useEditorStore.getState().selectedClipId
+            const clipStillExists = useEditorStore.getState().clips.some((c) => c.id === activeClipId)
+            if (!clipStillExists || currentSelected !== activeClipId) {
+                console.warn('[ActionBar] Clip switched during silence detection. Discarding.')
+                return
+            }
+
+            if (splitPoints.length === 0) {
+                alert('No significant silence gaps detected.')
+                return
+            }
+            for (const sp of splitPoints) {
+                if (sp > selectedClip.trimStart && sp < selectedClip.trimEnd) {
+                    addSplitPoint(activeClipId, sp)
+                }
+            }
+        } catch (error) {
+            console.error('[ActionBar] Failed to detect silence:', error)
+            alert('Silence detection failed. Make sure the video contains an audio track.')
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    const handleGenerateSubtitles = async () => {
+        if (!selectedClip) return
+
+        const activeClipId = selectedClip.id
+        const activeClipName = selectedClip.name
+        setLoading(true)
+        try {
+            startExport()
+            const cues = await generateSubtitlesWebGPU(selectedClip.file, (progress, message) => {
+                setProcessing(progress, message)
+            })
+
+            const currentSelected = useEditorStore.getState().selectedClipId
+            const clipStillExists = useEditorStore.getState().clips.some((c) => c.id === activeClipId)
+            if (!clipStillExists || currentSelected !== activeClipId) {
+                setComplete('')
+                return
+            }
+
+            if (cues.length === 0) {
+                setComplete('')
+                alert('No speech detected in audio track.')
+                return
+            }
+
+            const srtContent = formatAsSRT(cues)
+            const blob = new Blob([srtContent], { type: 'text/plain;charset=utf-8' })
+            const url = URL.createObjectURL(blob)
+            const a = document.createElement('a')
+            a.href = url
+            const baseName = sanitizeFilename(activeClipName.replace(/\.[^/.]+$/, ''))
+            a.download = `${baseName}_subtitles.srt`
+            document.body.appendChild(a)
+            a.click()
+            document.body.removeChild(a)
+            setTimeout(() => URL.revokeObjectURL(url), 15000)
+
+            setComplete('')
+        } catch (error) {
+            console.error('[ActionBar] Failed to generate subtitles:', error)
+            setError('Failed to generate subtitles with Whisper AI.')
+        } finally {
+            setLoading(false)
+        }
+    }
+
     return (
-        <footer className={styles.actionBar} role="toolbar" aria-label="Video editing actions">
-            <div className={styles.group}>
-                <button
-                    className="btn"
-                    onClick={handleTrim}
-                    disabled={!selectedClip}
-                    title="Trim selected clip"
-                >
-                    <Scissors size={16} />
-                    Export Trim
-                </button>
+        <div className={styles.dockContainer}>
+            <footer className={styles.actionBar} role="toolbar" aria-label="Video editing actions">
+                <div className={styles.leftCluster}>
+                    <div className={styles.group}>
+                        <button
+                            className="btn"
+                            onClick={handleTrim}
+                            disabled={!selectedClip}
+                            title="Trim selected clip (Export range)"
+                        >
+                            <Scissors size={14} />
+                            <span>Export Trim</span>
+                        </button>
 
-                <button
-                    className={`btn ${canSplit ? 'btn-warning' : ''}`}
-                    onClick={handleSplit}
-                    disabled={!canSplit}
-                    title={canSplit ? `Export ${selectedClip!.splitPoints.length + 1} segments` : 'Add split points in timeline first'}
-                >
-                    <Split size={16} />
-                    {canSplit ? `Export ${selectedClip!.splitPoints.length + 1} Segments` : 'Export Split'}
-                </button>
+                        <button
+                            className={`btn ${canSplit ? 'btn-warning' : ''}`}
+                            onClick={handleSplit}
+                            disabled={!canSplit}
+                            title={canSplit ? `Export ${selectedClip!.splitPoints.length + 1} segments` : 'Add split points in timeline first'}
+                        >
+                            <Split size={14} />
+                            <span>{canSplit ? `Split (${selectedClip!.splitPoints.length + 1})` : 'Export Split'}</span>
+                        </button>
 
-                <button
-                    className="btn"
-                    onClick={handleMerge}
-                    disabled={!canMerge}
-                    title="Merge and export all clips"
-                >
-                    <Link size={16} />
-                    Export Merge
-                </button>
+                        <button
+                            className="btn"
+                            onClick={handleMerge}
+                            disabled={!canMerge}
+                            title="Merge and export all clips"
+                        >
+                            <Link size={14} />
+                            <span>Export Merge</span>
+                        </button>
 
-                <button
-                    className="btn"
-                    onClick={() => selectedClip && revertClip(selectedClip.id)}
-                    disabled={!selectedClip || !selectedClipHasModifications}
-                    title="Revert selected clip to original"
-                >
-                    <RotateCcw size={16} />
-                    Revert
-                </button>
+                        <button
+                            className="btn"
+                            onClick={() => selectedClip && revertClip(selectedClip.id)}
+                            disabled={!selectedClip || !selectedClipHasModifications}
+                            title="Revert selected clip to original"
+                        >
+                            <RotateCcw size={14} />
+                            <span>Revert</span>
+                        </button>
 
-                <button
-                    className="btn"
-                    onClick={handleReverse}
-                    disabled={!selectedClip}
-                    title="Create a reversed copy of the selected clip"
-                >
-                    <Rewind size={16} />
-                    Reverse
-                </button>
+                        <button
+                            className="btn"
+                            onClick={handleReverse}
+                            disabled={!selectedClip}
+                            title="Create a reversed copy of the selected clip"
+                        >
+                            <Rewind size={14} />
+                            <span>Reverse</span>
+                        </button>
+                    </div>
 
-                <div className={styles.divider} />
+                    <div className={styles.divider} />
 
-                <button
-                    className="btn"
-                    onClick={() => handleExtractFrame('first')}
-                    disabled={!selectedClip}
-                    title="Extract first frame as PNG"
-                >
-                    <Image size={16} />
-                    First Frame
-                </button>
+                    {/* AI Studio Superpowers */}
+                    <div className={styles.group}>
+                        <button
+                            className={`btn ${styles.aiBtn}`}
+                            onClick={handleAutoCutSilence}
+                            disabled={!selectedClip}
+                            title="Detect speech pauses and create split markers (AI Silence Detection)"
+                        >
+                            <Sparkles size={14} className={styles.aiSparkleIcon} />
+                            <span>Auto Cut Silences</span>
+                        </button>
 
-                <button
-                    className="btn"
-                    onClick={() => handleExtractFrame('last')}
-                    disabled={!selectedClip}
-                    title="Extract last frame as PNG"
-                >
-                    <Image size={16} />
-                    Last Frame
-                </button>
+                        <button
+                            className={`btn ${styles.aiBtn}`}
+                            onClick={handleGenerateSubtitles}
+                            disabled={!selectedClip}
+                            title="Transcribe speech & generate .srt subtitles (Whisper WebGPU AI)"
+                        >
+                            <Captions size={14} className={styles.aiCaptionsIcon} />
+                            <span>Auto Subtitles</span>
+                        </button>
+                    </div>
 
-                <button
-                    className="btn"
-                    onClick={handleDetachAudio}
-                    disabled={!selectedClip}
-                    title="Detach audio from video"
-                >
-                    <Music size={16} />
-                    Detach Audio
-                </button>
+                    <div className={styles.divider} />
 
-                <button
-                    className="btn btn-warning"
-                    onClick={handleFixVisibility}
-                    disabled={!selectedClip}
-                    title="Convert video to a browser-compatible format (H.264)"
-                >
-                    <Wand2 size={16} />
-                    Fix Visibility
-                </button>
+                    {/* Media Extraction & Utility */}
+                    <div className={styles.group}>
+                        <button
+                            className="btn"
+                            onClick={() => handleExtractFrame('first')}
+                            disabled={!selectedClip}
+                            title="Extract first frame as WebP"
+                        >
+                            <Image size={14} />
+                            <span>First Frame</span>
+                        </button>
 
-                <div className={styles.divider} />
+                        <button
+                            className="btn"
+                            onClick={() => handleExtractFrame('last')}
+                            disabled={!selectedClip}
+                            title="Extract last frame as WebP"
+                        >
+                            <Image size={14} />
+                            <span>Last Frame</span>
+                        </button>
 
-                <button
-                    className="btn"
-                    onClick={reset}
-                    disabled={!hasClips}
-                    title="Reset project (clear all)"
-                >
-                    <RotateCcw size={16} />
-                    Reset
-                </button>
-            </div>
+                        <button
+                            className="btn"
+                            onClick={handleDetachAudio}
+                            disabled={!selectedClip}
+                            title="Detach and download audio"
+                        >
+                            <Music size={14} />
+                            <span>Detach Audio</span>
+                        </button>
 
-            <div className={styles.group}>
-                <button
-                    className={`btn btn-primary ${styles.exportBtn}`}
-                    onClick={handleExportSelected}
-                    disabled={!selectedClip}
-                >
-                    <Download size={16} />
-                    Export Selected
-                </button>
-            </div>
-        </footer>
+                        <button
+                            className="btn btn-warning"
+                            onClick={handleFixVisibility}
+                            disabled={!selectedClip}
+                            title="Convert video to browser-compatible format (H.264)"
+                        >
+                            <Wand2 size={14} />
+                            <span>Fix Visibility</span>
+                        </button>
+
+                        <button
+                            className="btn"
+                            onClick={reset}
+                            disabled={!hasClips}
+                            title="Clear all clips and reset project"
+                        >
+                            <RotateCcw size={14} />
+                            <span>Reset</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div className={styles.exportGroup}>
+                    <button
+                        className={`btn btn-primary ${styles.exportBtn}`}
+                        onClick={handleExportSelected}
+                        disabled={!selectedClip}
+                        title="Export selected clip with WebGPU hardware acceleration"
+                    >
+                        <Download size={15} />
+                        <span>Export Selected</span>
+                    </button>
+                </div>
+            </footer>
+        </div>
     )
 }
