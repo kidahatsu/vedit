@@ -12,6 +12,14 @@
     <link rel="apple-touch-icon" href="/favicon.svg" />
     <meta name="description" content="VEdit - High-Performance WebGPU Video Editor with Local AI" />
     <title>VEdit - Video Editor</title>
+    <!-- Enable Cross-Origin Isolation on static hosts without custom headers (e.g. GitHub Pages) -->
+    <script>
+      if (!window.crossOriginIsolated) {
+        const script = document.createElement('script')
+        script.src = new URL('coi-serviceworker.min.js', window.location.href).href
+        document.head.appendChild(script)
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

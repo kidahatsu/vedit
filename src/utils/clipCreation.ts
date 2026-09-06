@@ -1,12 +1,19 @@
 import { generateId } from '../lib/utils'
 import { type Clip, DEFAULT_TRANSFORM } from '../store/editorStore'
-import { validateVideoFile } from './validation'
+import { validateVideoFile, validateVideoMagicBytes } from './validation'
 
 export async function createClipFromFile(file: File): Promise<Clip | null> {
     const validation = validateVideoFile(file)
     if (!validation.valid) {
         console.warn(`[createClipFromFile] Skipping invalid file: ${validation.error}`)
-        return null
+        throw new Error(validation.error || 'Invalid video file.')
+    }
+
+    const isValidMagic = await validateVideoMagicBytes(file)
+    if (!isValidMagic) {
+        const errorMsg = 'Invalid video file: Container header does not match a valid video format.'
+        console.warn(`[createClipFromFile] Skipping invalid file: ${errorMsg}`)
+        throw new Error(errorMsg)
     }
 
     const objectUrl = URL.createObjectURL(file)

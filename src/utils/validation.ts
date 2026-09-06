@@ -48,8 +48,10 @@ export async function validateVideoMagicBytes(file: File | Blob): Promise<boolea
                           (bytes[4] === 0x77 && bytes[5] === 0x69 && bytes[6] === 0x64 && bytes[7] === 0x65)
         // WebM / MKV (EBML header: 0x1A 0x45 0xDF 0xA3)
         const isEbml = bytes[0] === 0x1A && bytes[1] === 0x45 && bytes[2] === 0xDF && bytes[3] === 0xA3
-        // AVI (RIFF....AVI )
-        const isAvi = bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46
+        // AVI (RIFF....AVI  or RIFF....AVIX)
+        const isAvi = bytes.length >= 12 &&
+                      bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46 &&
+                      bytes[8] === 0x41 && bytes[9] === 0x56 && bytes[10] === 0x49 && (bytes[11] === 0x20 || bytes[11] === 0x58)
 
         return isIsoBmff || isEbml || isAvi
     } catch {

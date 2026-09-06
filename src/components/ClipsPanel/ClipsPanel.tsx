@@ -25,9 +25,14 @@ export function ClipsPanel() {
     const fileInputRef = useRef<HTMLInputElement>(null)
 
     const processFile = useCallback(async (file: File) => {
-        const clip = await createClipFromFile(file)
-        if (clip) {
-            addClip(clip)
+        try {
+            const clip = await createClipFromFile(file)
+            if (clip) {
+                addClip(clip)
+            }
+        } catch (error) {
+            console.error(`[ClipsPanel] Error loading file "${file.name}":`, error)
+            alert(error instanceof Error ? error.message : `Failed to load "${file.name}"`)
         }
     }, [addClip])
 
