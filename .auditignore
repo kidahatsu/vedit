@@ -1,0 +1,18 @@
+# Pre-Publish Security, Sanitization & Legal Audit Exclusions
+# -------------------------------------------------------------
+# Exclude test files and mock fixtures from OWASP false positives
+tests/
+__tests__/
+*.test.ts
+*.test.tsx
+*.spec.ts
+*.spec.tsx
+
+# Documentation assets and binaries
+docs/assets/
+docs/screenshots/
+
+# AI agent & tooling scratch
+.agent/
+.agents/
+

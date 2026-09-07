@@ -1,0 +1,79 @@
+{
+  "name": "vedit",
+  "version": "0.2.0",
+  "type": "module",
+  "description": "Browser-based video editor with trim, split, and merge. No uploads, all processing via FFmpeg WASM.",
+  "author": "VEdit Contributors",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kidahatsu/vedit.git"
+  },
+  "homepage": "https://github.com/kidahatsu/vedit#readme",
+  "bugs": {
+    "url": "https://github.com/kidahatsu/vedit/issues"
+  },
+  "keywords": [
+    "video-editor",
+    "ffmpeg",
+    "wasm",
+    "browser",
+    "pwa",
+    "react",
+    "typescript"
+  ],
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write \"src/**/*.{ts,tsx,css}\"",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\"",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@ffmpeg/ffmpeg": "^0.12.15",
+    "@ffmpeg/util": "^0.12.2",
+    "@huggingface/transformers": "^4.2.0",
+    "idb": "^8.0.3",
+    "lucide-react": "^0.468.0",
+    "mediabunny": "^1.55.2",
+    "mp4-muxer": "^5.2.2",
+    "mp4box": "^2.3.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "zundo": "^2.3.0",
+    "zustand": "^5.0.3"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.17.0",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/jest-dom": "^6.4.2",
+    "@testing-library/react": "^16.1.0",
+    "@types/react": "^19.0.2",
+    "@types/react-dom": "^19.0.2",
+    "@vitejs/plugin-react": "^4.3.4",
+    "@webgpu/types": "^0.1.72",
+    "eslint": "^9.17.0",
+    "eslint-plugin-react-hooks": "^5.1.0",
+    "eslint-plugin-react-refresh": "^0.4.16",
+    "globals": "^15.14.0",
+    "jsdom": "^24.0.0",
+    "prettier": "^3.2.5",
+    "typescript": "~5.6.2",
+    "typescript-eslint": "^8.18.2",
+    "vite": "^6.4.3",
+    "vite-plugin-pwa": "^0.21.1",
+    "vitest": "^4.1.11"
+  },
+  "overrides": {
+    "eslint": {
+      "brace-expansion": "^1.1.18"
+    },
+    "adm-zip": "^0.6.0",
+    "sharp": "^0.35.4"
+  }
+}

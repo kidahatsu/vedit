@@ -1,0 +1,1 @@
+export { ClipsPanel } from './ClipsPanel'

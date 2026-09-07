@@ -1,0 +1,81 @@
+MIT License
+
+Copyright (c) 2026 VEdit Contributors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+---
+
+## Third-Party Software Notices and Licensing Attributions
+
+This repository and distribution bundles incorporate, link with, or dynamically load
+the following open-source software libraries under their respective licenses:
+
+### 1. FFmpeg & FFmpeg.wasm
+- **Project:** FFmpeg (https://ffmpeg.org) & FFmpeg.wasm (https://github.com/ffmpegwasm/ffmpeg.wasm)
+- **License:** GNU Lesser General Public License version 2.1 (LGPL v2.1) or GNU General Public License version 3 (GPL v3) depending on build flags.
+- **Attribution & Compliance:**
+  VEdit interacts with FFmpeg compiled to WebAssembly via the `@ffmpeg/ffmpeg` wrapper packages.
+  The underlying FFmpeg WebAssembly binaries (`ffmpeg-core.js`, `ffmpeg-core.wasm`) are loaded dynamically
+  at runtime as separate modules. In accordance with LGPL v2.1 / GPL v3 terms, the source code of FFmpeg
+  and the WebAssembly build scripts remain publicly available at https://github.com/ffmpegwasm/ffmpeg.wasm
+  and https://ffmpeg.org. No proprietary modifications are made to the core FFmpeg binaries.
+
+### 2. ONNX Runtime Web
+- **Project:** ONNX Runtime (https://github.com/microsoft/onnxruntime)
+- **License:** MIT License
+- **Copyright:** Copyright (c) Microsoft Corporation. All rights reserved.
+
+### 3. Transformers.js
+- **Project:** Transformers.js (https://github.com/huggingface/transformers.js)
+- **License:** Apache License 2.0
+- **Copyright:** Copyright (c) Hugging Face Inc. All rights reserved.
+
+### 4. React & React DOM
+- **Project:** React (https://github.com/facebook/react)
+- **License:** MIT License
+- **Copyright:** Copyright (c) Meta Platforms, Inc. and affiliates.
+
+### 5. Zustand & Zundo
+- **Project:** Zustand (https://github.com/pmndrs/zustand) & Zundo (https://github.com/charkour/zundo)
+- **License:** MIT License
+- **Copyright:** Copyright (c) Paul Henschel and contributors.
+
+### 6. Media Utilities (mp4box.js, mp4-muxer, mediabunny)
+- **mp4box.js:** BSD-3-Clause License, Copyright (c) Telecom ParisTech.
+- **mp4-muxer:** MIT License, Copyright (c) Vanilagy.
+- **mediabunny:** MIT License, Copyright (c) mediabunny contributors.
+
+### 7. Lucide Icons
+- **Project:** Lucide (https://lucide.dev)
+- **License:** ISC License
+- **Copyright:** Copyright (c) Lucide Contributors.
+
+---
+
+## Trademark & IP Neutrality Disclaimer
+
+All product names, logos, brands, and registered trademarks mentioned within the repository,
+documentation, or codebase (including but not limited to Apple, Final Cut Pro, QuickTime,
+macOS, Adobe, Premiere, Photoshop, DaVinci Resolve, TikTok, Instagram, and YouTube) are
+the property of their respective owners.
+
+All company, product, and service names used herein are for identification, compatibility,
+and interoperability purposes only. Use of these names, logos, and brands does not imply
+endorsement, sponsorship, or affiliation.

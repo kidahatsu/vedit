@@ -1,0 +1,286 @@
+/* ==========================================================================
+   VEdit Pro Global Styles - Professional Studio Quality
+   ========================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+/* Reset & Box Sizing */
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html {
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    background-color: var(--color-bg-canvas);
+    color: var(--color-text-primary);
+}
+
+body {
+    font-family: var(--font-sans);
+    font-size: var(--font-size-md);
+    line-height: var(--line-height-normal);
+    color: var(--color-text-primary);
+    background-color: var(--color-bg-canvas);
+    min-height: 100vh;
+    overflow-x: hidden;
+    letter-spacing: -0.012em;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+/* Studio Focus Indicators */
+:focus-visible {
+    outline: 2px solid var(--color-accent-primary);
+    outline-offset: 2px;
+    box-shadow: 0 0 12px rgba(10, 132, 255, 0.5);
+}
+
+/* Selection */
+::selection {
+    background: rgba(10, 132, 255, 0.35);
+    color: #ffffff;
+}
+
+/* Refined Dark Scrollbar */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: var(--radius-full);
+    transition: background var(--transition-fast);
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+/* ==========================================================================
+   Utility Classes & Materials
+   ========================================================================== */
+
+/* Translucent Glass Surface */
+.glass {
+    background: var(--color-bg-glass);
+    backdrop-filter: blur(28px) saturate(180%);
+    -webkit-backdrop-filter: blur(28px) saturate(180%);
+    border: 1px solid var(--color-border);
+    box-shadow: var(--border-specular-top), var(--shadow-sm);
+    border-radius: var(--radius-lg);
+    transition:
+        background var(--transition-fast),
+        border-color var(--transition-fast),
+        box-shadow var(--transition-fast);
+}
+
+.glass:hover {
+    background: var(--color-bg-glass-hover);
+    border-color: var(--color-border-hover);
+}
+
+/* Studio Dynamic Gradient Text */
+.gradient-text {
+    background: linear-gradient(
+        135deg,
+        #ffffff 0%,
+        rgba(255, 255, 255, 0.85) 45%,
+        var(--color-accent-primary) 100%
+    );
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    font-weight: var(--font-weight-bold);
+    letter-spacing: -0.025em;
+}
+
+.gradient-accent {
+    background: linear-gradient(135deg, var(--color-accent-primary), var(--color-accent-secondary));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+/* Studio Button Hierarchy */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    height: 32px;
+    padding: 0 var(--space-3);
+    font-family: var(--font-sans);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text-primary);
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid var(--color-border);
+    box-shadow:
+        var(--border-specular-top),
+        0 1px 2px rgba(0, 0, 0, 0.2);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    white-space: nowrap;
+}
+
+.btn:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.11);
+    border-color: var(--color-border-hover);
+    transform: translateY(-0.5px);
+}
+
+.btn:active:not(:disabled) {
+    background: rgba(255, 255, 255, 0.04);
+    transform: scale(0.98);
+}
+
+.btn:disabled {
+    opacity: 0.38;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+/* Primary Accent Button */
+.btn-primary {
+    background: linear-gradient(180deg, #1a8cff 0%, #0071e3 100%);
+    border-color: rgba(255, 255, 255, 0.2);
+    color: #ffffff;
+    font-weight: var(--font-weight-semibold);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.3),
+        0 2px 8px rgba(0, 113, 227, 0.4);
+}
+
+.btn-primary:hover:not(:disabled) {
+    background: linear-gradient(180deg, #3399ff 0%, #0077ed 100%);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.4),
+        0 4px 14px rgba(0, 113, 227, 0.55);
+}
+
+.btn-primary:active:not(:disabled) {
+    background: #0062c4;
+    transform: scale(0.98);
+}
+
+/* Amber Warning Button */
+.btn-warning {
+    background: linear-gradient(180deg, #ffd60a 0%, #d4a700 100%);
+    border-color: rgba(255, 255, 255, 0.2);
+    color: #000000;
+    font-weight: var(--font-weight-semibold);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.35),
+        0 2px 8px rgba(255, 214, 10, 0.35);
+}
+
+.btn-warning:hover:not(:disabled) {
+    background: linear-gradient(180deg, #ffe033 0%, #e0b000 100%);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.45),
+        0 4px 14px rgba(255, 214, 10, 0.45);
+}
+
+/* Coral Error / Destructive Button */
+.btn-destructive {
+    background: rgba(255, 69, 58, 0.15);
+    border-color: rgba(255, 69, 58, 0.3);
+    color: var(--color-accent-error);
+}
+
+.btn-destructive:hover:not(:disabled) {
+    background: rgba(255, 69, 58, 0.25);
+    border-color: var(--color-accent-error);
+}
+
+/* Square Icon Action Button */
+.btn-icon {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border-radius: var(--radius-sm);
+    flex-shrink: 0;
+}
+
+/* Studio Timecode Typography */
+.timecode {
+    font-family: var(--font-mono);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text-secondary);
+    letter-spacing: 0.04em;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Shimmer Animation for AI Tools */
+@keyframes aiShimmer {
+    0% {
+        background-position: -200% 0;
+    }
+    100% {
+        background-position: 200% 0;
+    }
+}
+
+.ai-shimmer {
+    background: linear-gradient(
+        90deg,
+        rgba(255, 255, 255, 0.06) 0%,
+        rgba(10, 132, 255, 0.2) 50%,
+        rgba(255, 255, 255, 0.06) 100%
+    );
+    background-size: 200% 100%;
+    animation: aiShimmer 3.5s infinite;
+}
+
+/* ==========================================================================
+   Layout Helpers
+   ========================================================================== */
+
+.flex {
+    display: flex;
+}
+.flex-col {
+    flex-direction: column;
+}
+.items-center {
+    align-items: center;
+}
+.justify-center {
+    justify-content: center;
+}
+.justify-between {
+    justify-content: space-between;
+}
+.gap-1 {
+    gap: var(--space-1);
+}
+.gap-2 {
+    gap: var(--space-2);
+}
+.gap-3 {
+    gap: var(--space-3);
+}
+.gap-4 {
+    gap: var(--space-4);
+}
+
+#root {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    background-color: var(--color-bg-canvas);
+}

@@ -1,0 +1,247 @@
+/* ==========================================================================
+   Media Clips Drawer Styles
+   ========================================================================== */
+
+.panel {
+    width: var(--sidebar-width);
+    background: rgba(12, 12, 16, 0.6);
+    backdrop-filter: blur(28px) saturate(180%);
+    -webkit-backdrop-filter: blur(28px) saturate(180%);
+    border-right: 1px solid var(--color-border);
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    overflow: hidden;
+    user-select: none;
+}
+
+.panelHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-3) var(--space-4);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.title {
+    font-size: var(--font-size-xs);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--color-text-muted);
+}
+
+.countBadge {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 1px 6px;
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: var(--radius-full);
+    color: var(--color-text-secondary);
+}
+
+/* Media Ingestion Drop Zone */
+.dropZone {
+    flex: 1;
+    margin: var(--space-3);
+    border: 1.5px dashed rgba(255, 255, 255, 0.12);
+    border-radius: var(--radius-lg);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    padding: var(--space-4);
+    text-align: center;
+    color: var(--color-text-secondary);
+    background: rgba(255, 255, 255, 0.015);
+    cursor: pointer;
+    transition: all var(--transition-normal);
+}
+
+.dropZone:hover {
+    border-color: rgba(10, 132, 255, 0.5);
+    background: rgba(10, 132, 255, 0.04);
+    color: var(--color-text-primary);
+    transform: scale(0.99);
+}
+
+.dropZone.active {
+    border-color: var(--color-accent-primary);
+    background: rgba(10, 132, 255, 0.08);
+    box-shadow: 0 0 20px rgba(10, 132, 255, 0.2);
+}
+
+.dropIcon {
+    color: var(--color-accent-primary);
+    opacity: 0.8;
+    transition: transform var(--transition-normal);
+}
+
+.dropZone:hover .dropIcon {
+    transform: translateY(-2px);
+    opacity: 1;
+}
+
+.dropTitle {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+}
+
+.dropSubtitle {
+    font-size: var(--font-size-2xs);
+    color: var(--color-text-muted);
+}
+
+/* Clips List */
+.list {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--space-2) var(--space-3);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+/* Interactive Media Clip Card */
+.clip {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: 6px;
+    background: rgba(255, 255, 255, 0.025);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    position: relative;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.clip:hover {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.15);
+}
+
+.clipSelected {
+    background: rgba(10, 132, 255, 0.12) !important;
+    border-color: rgba(10, 132, 255, 0.5) !important;
+    box-shadow:
+        0 0 0 1px rgba(10, 132, 255, 0.4),
+        0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.thumbnailContainer {
+    position: relative;
+    width: 52px;
+    height: 36px;
+    border-radius: var(--radius-xs);
+    overflow: hidden;
+    background: #000;
+    flex-shrink: 0;
+}
+
+.thumbnail {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.thumbnailPlaceholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--color-text-muted);
+}
+
+.clipDurationBadge {
+    position: absolute;
+    bottom: 2px;
+    right: 2px;
+    background: rgba(0, 0, 0, 0.75);
+    color: #fff;
+    font-family: var(--font-mono);
+    font-size: 8px;
+    padding: 1px 3px;
+    border-radius: 2px;
+    line-height: 1;
+}
+
+.clipInfo {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.clipName {
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.clipDuration {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--color-text-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+.menuBtn,
+.removeBtn {
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    border-radius: var(--radius-xs);
+    border: none;
+    background: transparent;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: all var(--transition-fast);
+}
+
+.clip:hover .menuBtn,
+.clip:hover .removeBtn {
+    opacity: 0.7;
+}
+
+.menuBtn:hover,
+.removeBtn:hover {
+    opacity: 1 !important;
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--color-text-primary);
+}
+
+.addButton {
+    margin: var(--space-2) var(--space-3) var(--space-3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    height: 30px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-medium);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.addButton:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: var(--color-border-hover);
+    color: var(--color-text-primary);
+}
