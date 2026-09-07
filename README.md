@@ -13,7 +13,7 @@ A private, non-destructive, in-browser video editor running entirely on the clie
 ---
 
 <p align="center">
-  <img src="docs/assets/ui-mockup.png" alt="VEdit Application Interface" width="900">
+  <img src="docs/assets/app-screenshot.png" alt="VEdit Application Interface" width="900">
 </p>
 
 ---

@@ -2,7 +2,7 @@
 
 > A lightweight, privacy-first video trimming, splitting, and merging PWA
 
-![UI Mockup](./assets/ui-mockup.png)
+![Application Screenshot](./assets/app-screenshot.png)
 
 ## 🎯 Product Vision
 
